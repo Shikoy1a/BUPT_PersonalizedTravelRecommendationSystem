@@ -41,7 +41,7 @@ onMounted(load)
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center">
           <div style="font-weight: 900">{{ food?.name || '美食详情' }}</div>
-          <el-tag effect="dark" type="info">{{ food?.cuisine || '—' }}</el-tag>
+          <el-tag effect="plain">{{ food?.cuisine || '—' }}</el-tag>
         </div>
       </template>
 
@@ -82,8 +82,10 @@ onMounted(load)
           <el-input v-model="rate.comment" type="textarea" :rows="3" placeholder="写点评价（可选）" />
           <el-button type="primary" @click="submitRate">提交</el-button>
         </div>
-        <div v-else class="muted" style="margin-top: 10px">
-          请先 <a style="cursor: pointer; color: rgba(34,211,238,0.95)" @click="$router.push('/login')">登录</a> 后评分
+        <div v-else class="muted" style="margin-top: 12px">
+          请先
+          <a style="cursor: pointer; color: var(--accent-main)" @click="$router.push('/login')">登录</a>
+          后评分
         </div>
       </div>
     </el-card>
@@ -94,14 +96,14 @@ onMounted(load)
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 .block {
   padding: 14px;
 }
 .k {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--text-2);
 }
 .v {
   font-size: 14px;
@@ -114,9 +116,9 @@ onMounted(load)
   line-height: 1.6;
 }
 .rateBox {
-  margin-top: 10px;
+  margin-top: 12px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 </style>
 

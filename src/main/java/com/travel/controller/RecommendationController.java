@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 推荐相关接口。
  */
@@ -46,14 +48,15 @@ public class RecommendationController
     @GetMapping("/personalized")
     public ApiResponse<PageData<ScenicAreaRecommendVO>> personalized(@RequestParam(value = "page", required = false) Integer page,
                                                                      @RequestParam(value = "size", required = false) Integer size,
-                                                                     @RequestParam(value = "type", required = false) String type)
+                                                                     @RequestParam(value = "type", required = false) String type,
+                                                                     @RequestParam(value = "tagKeyword", required = false) String tagKeyword)
     {
         Long userId = SecurityUtil.getCurrentUserId();
         if (userId == null)
         {
             return ApiResponse.failure(401, "未登录或令牌无效");
         }
-        return ApiResponse.success(recommendationService.personalized(userId, page, size, type), "获取成功");
+        return ApiResponse.success(recommendationService.personalized(userId, page, size, type, tagKeyword), "获取成功");
     }
 
     /**
@@ -74,6 +77,17 @@ public class RecommendationController
     public ApiResponse<ScenicArea> detail(@PathVariable("id") @NotNull Long id)
     {
         return ApiResponse.success(recommendationService.detail(id), "获取成功");
+    }
+
+    /**
+     * 按名称关键字筛选景区（内存匹配，供前端目的地下拉）。
+     */
+    @GetMapping("/scenic-search")
+    public ApiResponse<List<ScenicArea>> scenicSearch(@RequestParam("keyword") String keyword,
+                                                       @RequestParam(value = "limit", required = false) Integer limit)
+    {
+        int lim = limit == null ? 50 : limit;
+        return ApiResponse.success(recommendationService.searchScenicByKeyword(keyword, lim), "获取成功");
     }
 }
 

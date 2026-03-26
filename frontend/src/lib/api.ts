@@ -6,6 +6,7 @@ export type PageData<T> = { list: T[]; total: number }
 export type ScenicArea = {
   id: number
   name: string
+  tags?: string[]
   description?: string
   location?: string
   longitude?: number
@@ -66,12 +67,13 @@ export type Diary = {
 
 export type DiaryDetailVO = Diary & {
   destinations?: number[]
+  creatorNickname?: string
   comments?: any[]
 }
 
 export type RoutePlanVO = { path: number[]; distance: number; time: number }
 
-export async function apiRegister(payload: { username: string; password: string }) {
+export async function apiRegister(payload: { username: string; password: string; email: string; nickname: string }) {
   const res = (await http.post('/api/auth/register', payload)) as ApiResponse<{
     user_id: number
     username: string
@@ -111,7 +113,12 @@ export async function apiRecommendationList(params: {
   return res.data
 }
 
-export async function apiRecommendationPersonalized(params: { page?: number; size?: number; type?: string }) {
+export async function apiRecommendationPersonalized(params: {
+  page?: number
+  size?: number
+  type?: string
+  tagKeyword?: string
+}) {
   const res = (await http.get('/api/recommendation/personalized', { params })) as ApiResponse<
     PageData<ScenicAreaRecommendVO>
   >
@@ -125,6 +132,12 @@ export async function apiRecommendationHot(params: { page?: number; size?: numbe
 
 export async function apiScenicDetail(id: number) {
   const res = (await http.get(`/api/recommendation/detail/${id}`)) as ApiResponse<ScenicArea>
+  return res.data
+}
+
+/** 按名称关键字筛选景区（内存匹配），供目的地下拉 */
+export async function apiScenicSearchByKeyword(params: { keyword: string; limit?: number }) {
+  const res = (await http.get('/api/recommendation/scenic-search', { params })) as ApiResponse<ScenicArea[]>
   return res.data
 }
 
@@ -228,11 +241,7 @@ export async function apiDiaryCreate(payload: {
   videos?: string[]
   destinations?: number[]
 }) {
-  const res = (await http.post('/api/diary', {
-    ...payload,
-    images: payload.images ? JSON.stringify(payload.images) : undefined,
-    videos: payload.videos ? JSON.stringify(payload.videos) : undefined,
-  })) as ApiResponse<{ diary_id: number }>
+  const res = (await http.post('/api/diary', payload)) as ApiResponse<{ diary_id: number }>
   return res.data
 }
 
@@ -242,16 +251,29 @@ export async function apiDiaryList(params: { page?: number; size?: number; sortB
 }
 
 export async function apiDiaryDetail(id: number) {
-  const res = (await http.get(`/api/diary/${id}`)) as ApiResponse<DiaryDetailVO>
-  return res.data
+  const res = (await http.get(`/api/diary/${id}`)) as ApiResponse<unknown>
+  const raw = res.data as { diary?: Diary; destinations?: number[] } & Diary
+  // 后端 DiaryDetailVO 为 { diary, destinations }，前端统一摊平为 Diary + destinations
+  if (raw && typeof raw === 'object' && raw.diary) {
+    return {
+      ...raw.diary,
+      destinations: raw.destinations ?? [],
+    } as DiaryDetailVO
+  }
+  return raw as DiaryDetailVO
 }
 
-export async function apiDiaryUpdate(id: number, payload: { title: string; content: string; images?: string[]; videos?: string[] }) {
-  const res = (await http.put(`/api/diary/${id}`, {
-    ...payload,
-    images: payload.images ? JSON.stringify(payload.images) : undefined,
-    videos: payload.videos ? JSON.stringify(payload.videos) : undefined,
-  })) as ApiResponse<void>
+export async function apiDiaryUpdate(
+  id: number,
+  payload: {
+    title: string
+    content: string
+    images?: string[]
+    videos?: string[]
+    destinations?: number[]
+  },
+) {
+  const res = (await http.put(`/api/diary/${id}`, payload)) as ApiResponse<void>
   return res.data
 }
 

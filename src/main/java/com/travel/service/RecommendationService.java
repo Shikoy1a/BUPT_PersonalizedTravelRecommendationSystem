@@ -4,6 +4,8 @@ import com.travel.common.PageData;
 import com.travel.model.entity.ScenicArea;
 import com.travel.model.vo.recommendation.ScenicAreaRecommendVO;
 
+import java.util.List;
+
 /**
  * 景区推荐服务。
  */
@@ -23,11 +25,16 @@ public interface RecommendationService
     /**
      * 个性化推荐（基于用户兴趣权重与景区标签权重匹配）。
      */
-    PageData<ScenicAreaRecommendVO> personalized(Long userId, Integer page, Integer size, String type);
+    PageData<ScenicAreaRecommendVO> personalized(Long userId, Integer page, Integer size, String type, String tagKeyword);
 
     /**
      * 景区详情。
      */
     ScenicArea detail(Long id);
+
+    /**
+     * 按名称关键字筛选景区（内存匹配，用于前端目的地下拉）。
+     */
+    List<ScenicArea> searchScenicByKeyword(String keyword, int limit);
 }
 

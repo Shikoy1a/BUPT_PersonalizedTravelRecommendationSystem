@@ -1,28 +1,16 @@
 package com.travel.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.travel.common.PageData;
-import com.travel.mapper.ScenicAreaMapper;
-import com.travel.mapper.ScenicAreaTagMapper;
-import com.travel.mapper.TagMapper;
-import com.travel.mapper.UserInterestMapper;
+import com.travel.storage.InMemoryStore;
 import com.travel.model.entity.ScenicArea;
-import com.travel.model.entity.ScenicAreaTag;
-import com.travel.model.entity.Tag;
-import com.travel.model.entity.UserInterest;
 import com.travel.model.vo.recommendation.ScenicAreaRecommendVO;
 import com.travel.service.RecommendationService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * 推荐服务实现。
@@ -41,23 +29,11 @@ import java.util.stream.Collectors;
 public class RecommendationServiceImpl implements RecommendationService
 {
 
-    private final ScenicAreaMapper scenicAreaMapper;
+    private final InMemoryStore store;
 
-    private final UserInterestMapper userInterestMapper;
-
-    private final ScenicAreaTagMapper scenicAreaTagMapper;
-
-    private final TagMapper tagMapper;
-
-    public RecommendationServiceImpl(ScenicAreaMapper scenicAreaMapper,
-                                     UserInterestMapper userInterestMapper,
-                                     ScenicAreaTagMapper scenicAreaTagMapper,
-                                     TagMapper tagMapper)
+    public RecommendationServiceImpl(InMemoryStore store)
     {
-        this.scenicAreaMapper = scenicAreaMapper;
-        this.userInterestMapper = userInterestMapper;
-        this.scenicAreaTagMapper = scenicAreaTagMapper;
-        this.tagMapper = tagMapper;
+        this.store = store;
     }
 
     @Override
@@ -67,29 +43,44 @@ public class RecommendationServiceImpl implements RecommendationService
         int s = size == null || size <= 0 ? 10 : Math.min(size, 50);
         int offset = (p - 1) * s;
 
-        LambdaQueryWrapper<ScenicArea> wrapper = new LambdaQueryWrapper<>();
-        if (StringUtils.isNotBlank(type))
+        List<ScenicArea> all = StringUtils.isNotBlank(type) ? store.findScenicAreasByType(type) : store.findAllScenicAreas();
+        for (ScenicArea scenic : all)
         {
-            wrapper.eq(ScenicArea::getType, type);
+            scenic.setTags(store.getScenicAreaTagNames(scenic.getId()));
         }
 
-        if ("rating".equalsIgnoreCase(sortBy))
+        all.sort((a, b) ->
         {
-            wrapper.orderByDesc(ScenicArea::getRating);
-        }
-        else if ("heat".equalsIgnoreCase(sortBy))
-        {
-            wrapper.orderByDesc(ScenicArea::getHeat);
-        }
-        else
-        {
-            wrapper.orderByDesc(ScenicArea::getHeat).orderByDesc(ScenicArea::getRating);
-        }
+            if ("rating".equalsIgnoreCase(sortBy))
+            {
+                double ra = a.getRating() == null ? 0.0 : a.getRating();
+                double rb = b.getRating() == null ? 0.0 : b.getRating();
+                return Double.compare(rb, ra);
+            }
+            if ("heat".equalsIgnoreCase(sortBy))
+            {
+                int ha = a.getHeat() == null ? 0 : a.getHeat();
+                int hb = b.getHeat() == null ? 0 : b.getHeat();
+                return Integer.compare(hb, ha);
+            }
+            int ha = a.getHeat() == null ? 0 : a.getHeat();
+            int hb = b.getHeat() == null ? 0 : b.getHeat();
+            if (ha != hb)
+            {
+                return Integer.compare(hb, ha);
+            }
+            double ra = a.getRating() == null ? 0.0 : a.getRating();
+            double rb = b.getRating() == null ? 0.0 : b.getRating();
+            return Double.compare(rb, ra);
+        });
 
-        Long total = scenicAreaMapper.selectCount(wrapper);
-        wrapper.last("limit " + offset + "," + s);
-        List<ScenicArea> list = scenicAreaMapper.selectList(wrapper);
-        return new PageData<>(list, total);
+        int total = all.size();
+        if (offset >= total)
+        {
+            return new PageData<>(List.of(), (long) total);
+        }
+        int to = Math.min(offset + s, total);
+        return new PageData<>(all.subList(offset, to), (long) total);
     }
 
     @Override
@@ -100,7 +91,7 @@ public class RecommendationServiceImpl implements RecommendationService
     }
 
     @Override
-    public PageData<ScenicAreaRecommendVO> personalized(Long userId, Integer page, Integer size, String type)
+    public PageData<ScenicAreaRecommendVO> personalized(Long userId, Integer page, Integer size, String type, String tagKeyword)
     {
         if (userId == null)
         {
@@ -108,48 +99,88 @@ public class RecommendationServiceImpl implements RecommendationService
         }
         int p = page == null || page < 1 ? 1 : page;
         int s = size == null || size <= 0 ? 10 : Math.min(size, 50);
-
-        // 候选集：取热度靠前的一批再做个性化计算，避免全量计算
-        int candidateLimit = Math.min(300, p * s * 10);
-        LambdaQueryWrapper<ScenicArea> candidateWrapper = new LambdaQueryWrapper<>();
-        if (StringUtils.isNotBlank(type))
+        // 兼容旧前端：很多页面仍把输入框绑定到 type。
+        // 若 type 未匹配到任何景点类型且 tagKeyword 为空，则把 type 视作关键词。
+        String effectiveTagKeyword = tagKeyword;
+        List<ScenicArea> base = StringUtils.isNotBlank(type) ? store.findScenicAreasByType(type) : store.findAllScenicAreas();
+        if (base.isEmpty() && StringUtils.isBlank(tagKeyword) && StringUtils.isNotBlank(type))
         {
-            candidateWrapper.eq(ScenicArea::getType, type);
+            base = store.findAllScenicAreas();
+            effectiveTagKeyword = type;
         }
-        candidateWrapper.orderByDesc(ScenicArea::getHeat).orderByDesc(ScenicArea::getRating);
-        candidateWrapper.last("limit " + candidateLimit);
-        List<ScenicArea> candidates = scenicAreaMapper.selectList(candidateWrapper);
-        if (candidates.isEmpty())
+        if (base.isEmpty())
         {
             return new PageData<>(List.of(), 0L);
         }
 
-        Map<String, Double> interestWeights = loadUserInterests(userId);
-        Map<Long, Map<String, Double>> scenicTagWeights = loadScenicTagWeights(candidates);
-
-        int maxHeat = candidates.stream().map(ScenicArea::getHeat).filter(Objects::nonNull).max(Integer::compareTo).orElse(1);
-        if (maxHeat <= 0)
+        String normalizedTagKeyword = normalize(effectiveTagKeyword);
+        if (normalizedTagKeyword != null)
         {
-            maxHeat = 1;
+            List<ScenicArea> filtered = new ArrayList<>();
+            for (ScenicArea scenic : base)
+            {
+                if (containsTagKeyword(scenic.getId(), normalizedTagKeyword))
+                {
+                    filtered.add(scenic);
+                }
+            }
+            base = filtered;
+            if (base.isEmpty())
+            {
+                return new PageData<>(List.of(), 0L);
+            }
         }
 
-        List<ScenicAreaRecommendVO> scored = new ArrayList<>(candidates.size());
-        for (ScenicArea scenic : candidates)
+        // 候选集：取热度靠前的一批再做个性化计算，避免全量计算
+        int candidateLimit = Math.min(300, p * s * 10);
+        base.sort((a, b) ->
         {
-            double matchScore = 0.0;
-            Map<String, Double> tags = scenicTagWeights.getOrDefault(scenic.getId(), Map.of());
-            for (Map.Entry<String, Double> e : tags.entrySet())
+            int ha = a.getHeat() == null ? 0 : a.getHeat();
+            int hb = b.getHeat() == null ? 0 : b.getHeat();
+            if (ha != hb)
             {
-                Double uw = interestWeights.get(e.getKey());
-                if (uw != null)
+                return Integer.compare(hb, ha);
+            }
+            double ra = a.getRating() == null ? 0.0 : a.getRating();
+            double rb = b.getRating() == null ? 0.0 : b.getRating();
+            return Double.compare(rb, ra);
+        });
+        if (base.size() > candidateLimit)
+        {
+            base = base.subList(0, candidateLimit);
+        }
+
+        Map<String, Double> interestWeights = store.getUserInterests(userId);
+
+        int maxHeat = 1;
+        for (ScenicArea sa : base)
+        {
+            if (sa.getHeat() != null && sa.getHeat() > maxHeat)
+            {
+                maxHeat = sa.getHeat();
+            }
+        }
+
+        List<ScenicAreaRecommendVO> scored = new ArrayList<>(base.size());
+        for (ScenicArea scenic : base)
+        {
+            scenic.setTags(store.getScenicAreaTagNames(scenic.getId()));
+            double matchScore = 0.0;
+            Map<String, Double> tags = store.getScenicAreaTagWeights(scenic.getId());
+            if (tags != null)
+            {
+                for (Map.Entry<String, Double> e : tags.entrySet())
                 {
-                    matchScore += uw * (e.getValue() == null ? 1.0 : e.getValue());
+                    Double uw = interestWeights == null ? null : interestWeights.get(e.getKey());
+                    if (uw != null)
+                    {
+                        matchScore += uw * (e.getValue() == null ? 1.0 : e.getValue());
+                    }
                 }
             }
 
-            double heatNorm = (scenic.getHeat() == null ? 0.0 : scenic.getHeat()) / maxHeat;
+            double heatNorm = (scenic.getHeat() == null ? 0.0 : scenic.getHeat()) / (double) maxHeat;
             double ratingNorm = Math.min(Math.max((scenic.getRating() == null ? 0.0 : scenic.getRating()) / 5.0, 0.0), 1.0);
-
             double score = matchScore + 0.2 * heatNorm + 0.2 * ratingNorm;
 
             ScenicAreaRecommendVO vo = new ScenicAreaRecommendVO();
@@ -158,9 +189,12 @@ public class RecommendationServiceImpl implements RecommendationService
             scored.add(vo);
         }
 
-        Comparator<ScenicAreaRecommendVO> comparator =
-            Comparator.comparingDouble((ScenicAreaRecommendVO v) -> v.getScore() == null ? 0.0 : v.getScore()).reversed();
-        scored.sort(comparator);
+        scored.sort((a, b) ->
+        {
+            double sa = a.getScore() == null ? 0.0 : a.getScore();
+            double sb = b.getScore() == null ? 0.0 : b.getScore();
+            return Double.compare(sb, sa);
+        });
 
         int from = (p - 1) * s;
         if (from >= scored.size())
@@ -171,10 +205,41 @@ public class RecommendationServiceImpl implements RecommendationService
         return new PageData<>(scored.subList(from, to), (long) scored.size());
     }
 
+    private boolean containsTagKeyword(Long scenicAreaId, String normalizedTagKeyword)
+    {
+        Map<String, Double> tags = store.getScenicAreaTagWeights(scenicAreaId);
+        if (tags == null || tags.isEmpty())
+        {
+            return false;
+        }
+        for (String tagName : tags.keySet())
+        {
+            if (tagName == null)
+            {
+                continue;
+            }
+            String normalizedTagName = tagName.trim().toLowerCase();
+            if (normalizedTagName.contains(normalizedTagKeyword))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalize(String s)
+    {
+        if (StringUtils.isBlank(s))
+        {
+            return null;
+        }
+        return s.trim().toLowerCase();
+    }
+
     @Override
     public ScenicArea detail(Long id)
     {
-        ScenicArea scenicArea = scenicAreaMapper.selectById(id);
+        ScenicArea scenicArea = store.findScenicAreaById(id);
         if (scenicArea == null)
         {
             throw new IllegalArgumentException("景区不存在");
@@ -182,64 +247,29 @@ public class RecommendationServiceImpl implements RecommendationService
         return scenicArea;
     }
 
-    private Map<String, Double> loadUserInterests(Long userId)
+    @Override
+    public List<ScenicArea> searchScenicByKeyword(String keyword, int limit)
     {
-        LambdaQueryWrapper<UserInterest> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserInterest::getUserId, userId);
-        List<UserInterest> list = userInterestMapper.selectList(wrapper);
-        Map<String, Double> map = new HashMap<>();
-        for (UserInterest ui : list)
+        if (StringUtils.isBlank(keyword))
         {
-            if (StringUtils.isBlank(ui.getInterestType()))
+            return List.of();
+        }
+        int lim = limit <= 0 ? 50 : Math.min(limit, 100);
+        String q = keyword.trim().toLowerCase();
+        List<ScenicArea> out = new ArrayList<>();
+        for (ScenicArea sa : store.findAllScenicAreas())
+        {
+            String name = sa.getName();
+            if (name != null && name.toLowerCase().contains(q))
             {
-                continue;
+                out.add(sa);
+                if (out.size() >= lim)
+                {
+                    break;
+                }
             }
-            map.put(ui.getInterestType(), ui.getWeight() == null ? 1.0 : ui.getWeight());
         }
-        return map;
-    }
-
-    private Map<Long, Map<String, Double>> loadScenicTagWeights(List<ScenicArea> candidates)
-    {
-        Set<Long> scenicIds = candidates.stream().map(ScenicArea::getId).filter(Objects::nonNull).collect(Collectors.toSet());
-        if (scenicIds.isEmpty())
-        {
-            return Map.of();
-        }
-
-        LambdaQueryWrapper<ScenicAreaTag> satw = new LambdaQueryWrapper<>();
-        satw.in(ScenicAreaTag::getScenicAreaId, scenicIds);
-        List<ScenicAreaTag> relations = scenicAreaTagMapper.selectList(satw);
-        if (relations.isEmpty())
-        {
-            return Map.of();
-        }
-
-        Set<Long> tagIds = relations.stream().map(ScenicAreaTag::getTagId).filter(Objects::nonNull).collect(Collectors.toSet());
-        if (tagIds.isEmpty())
-        {
-            return Map.of();
-        }
-
-        List<Tag> tags = tagMapper.selectBatchIds(tagIds);
-        Map<Long, Tag> tagMap = new HashMap<>(tags.size());
-        for (Tag t : tags)
-        {
-            tagMap.put(t.getId(), t);
-        }
-
-        Map<Long, Map<String, Double>> scenicTags = new HashMap<>();
-        for (ScenicAreaTag rel : relations)
-        {
-            Tag tag = tagMap.get(rel.getTagId());
-            if (tag == null || StringUtils.isBlank(tag.getName()))
-            {
-                continue;
-            }
-            scenicTags.computeIfAbsent(rel.getScenicAreaId(), k -> new HashMap<>())
-                .put(tag.getName(), rel.getWeight() == null ? 1.0 : rel.getWeight());
-        }
-        return scenicTags;
+        return out;
     }
 }
 

@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiScenicDetail, type ScenicArea } from '../../lib/api'
+import ScenicNearbyDialog from '../../components/map/ScenicNearbyDialog.vue'
 
 const route = useRoute()
 const loading = ref(false)
 const scenic = ref<ScenicArea | null>(null)
+const nearbyVisible = ref(false)
+
+const hasLocationDisplay = computed(() => Boolean(scenic.value?.location))
 
 async function load() {
   loading.value = true
@@ -18,6 +22,11 @@ async function load() {
 }
 
 onMounted(load)
+
+function openNearbyDialog() {
+  if (!hasLocationDisplay.value) return
+  nearbyVisible.value = true
+}
 </script>
 
 <template>
@@ -26,14 +35,28 @@ onMounted(load)
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px">
           <div style="font-weight: 900; font-size: 18px">{{ scenic?.name || '景区详情' }}</div>
-          <el-tag effect="dark" type="info">{{ scenic?.type || '—' }}</el-tag>
+          <div class="tagWrap">
+            <div class="muted tagLabel">标签</div>
+            <el-tag effect="plain">{{ scenic?.type || '—' }}</el-tag>
+          </div>
         </div>
       </template>
 
       <div class="grid">
-        <div class="glass block">
+        <div
+          class="glass block locationBlock"
+          :class="{ clickable: hasLocationDisplay }"
+          role="button"
+          tabindex="0"
+          @click="openNearbyDialog"
+          @keydown.enter.prevent="openNearbyDialog"
+          @keydown.space.prevent="openNearbyDialog"
+        >
           <div class="k">位置</div>
-          <div class="v">{{ scenic?.location || '—' }}</div>
+          <div class="v">
+            {{ scenic?.location || '—' }}
+            <span v-if="hasLocationDisplay" class="tip">点击查看地图</span>
+          </div>
         </div>
         <div class="glass block">
           <div class="k">开放时间</div>
@@ -49,39 +72,76 @@ onMounted(load)
         </div>
       </div>
 
-      <div class="glass block" style="margin-top: 12px">
+      <div class="glass block" style="margin-top: 14px">
         <div class="k">简介</div>
         <div class="v2">{{ scenic?.description || '暂无简介' }}</div>
       </div>
 
-      <div class="glass block" style="margin-top: 12px">
+      <div class="glass block" style="margin-top: 14px">
         <div class="k">经纬度</div>
         <div class="v2">
           {{ scenic?.latitude ?? '—' }}, {{ scenic?.longitude ?? '—' }}
-          <span class="muted" style="margin-left: 8px">(用于设施“附近查询”与美食“距离权重”)</span>
         </div>
       </div>
     </el-card>
+
+    <ScenicNearbyDialog
+      v-model="nearbyVisible"
+      :scenic-name="scenic?.name"
+      :location="scenic?.location"
+      :latitude="scenic?.latitude"
+      :longitude="scenic?.longitude"
+    />
   </div>
 </template>
 
 <style scoped>
+.tagWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tagLabel {
+  font-size: 12px;
+  margin-top: 1px;
+}
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 .block {
   padding: 14px;
 }
+.locationBlock {
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+.locationBlock.clickable {
+  cursor: pointer;
+}
+.locationBlock.clickable:hover {
+  border-color: var(--accent, #7d66d9);
+}
+.locationBlock.clickable:focus-visible {
+  outline: 2px solid var(--accent, #7d66d9);
+  outline-offset: 2px;
+}
 .k {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--text-2);
 }
 .v {
   font-size: 14px;
   font-weight: 800;
   margin-top: 6px;
+}
+.tip {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
 }
 .v2 {
   font-size: 13px;

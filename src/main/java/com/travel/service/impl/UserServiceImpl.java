@@ -1,8 +1,6 @@
 package com.travel.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.travel.mapper.UserInterestMapper;
-import com.travel.mapper.UserMapper;
+import com.travel.storage.InMemoryStore;
 import com.travel.model.dto.auth.InterestItemRequest;
 import com.travel.model.dto.auth.LoginRequest;
 import com.travel.model.dto.auth.RegisterRequest;
@@ -18,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -27,21 +26,17 @@ import java.util.List;
 public class UserServiceImpl implements UserService
 {
 
-    private final UserMapper userMapper;
-
-    private final UserInterestMapper userInterestMapper;
+    private final InMemoryStore store;
 
     private final PasswordEncoder passwordEncoder;
 
     private final JwtUtil jwtUtil;
 
-    public UserServiceImpl(UserMapper userMapper,
-                           UserInterestMapper userInterestMapper,
+    public UserServiceImpl(InMemoryStore store,
                            PasswordEncoder passwordEncoder,
                            JwtUtil jwtUtil)
     {
-        this.userMapper = userMapper;
-        this.userInterestMapper = userInterestMapper;
+        this.store = store;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -50,12 +45,8 @@ public class UserServiceImpl implements UserService
     @Transactional(rollbackFor = Exception.class)
     public UserVO register(RegisterRequest request)
     {
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getUsername, request.getUsername())
-            .or()
-            .eq(User::getEmail, request.getEmail());
-        long count = userMapper.selectCount(wrapper);
-        if (count > 0)
+        if (store.findUserByUsername(request.getUsername()) != null ||
+            store.findUserByEmail(request.getEmail()) != null)
         {
             throw new IllegalArgumentException("用户名或邮箱已存在");
         }
@@ -70,16 +61,14 @@ public class UserServiceImpl implements UserService
         user.setCreateTime(now);
         user.setUpdateTime(now);
 
-        userMapper.insert(user);
+        store.insertUser(user);
         return toUserVO(user);
     }
 
     @Override
     public String login(LoginRequest request)
     {
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getUsername, request.getUsername());
-        User user = userMapper.selectOne(wrapper);
+        User user = store.findUserByUsername(request.getUsername());
         if (user == null)
         {
             throw new IllegalArgumentException("用户不存在");
@@ -95,12 +84,9 @@ public class UserServiceImpl implements UserService
     @Transactional(rollbackFor = Exception.class)
     public void updateInterests(Long userId, UpdateInterestRequest request)
     {
-        LambdaQueryWrapper<UserInterest> deleteWrapper = new LambdaQueryWrapper<>();
-        deleteWrapper.eq(UserInterest::getUserId, userId);
-        userInterestMapper.delete(deleteWrapper);
-
         List<InterestItemRequest> items = request.getInterests();
         LocalDateTime now = LocalDateTime.now();
+        List<UserInterest> interests = new ArrayList<>();
         for (InterestItemRequest item : items)
         {
             if (StringUtils.isBlank(item.getType()))
@@ -112,16 +98,15 @@ public class UserServiceImpl implements UserService
             interest.setInterestType(item.getType());
             interest.setWeight(item.getWeight() == null ? 1.0 : item.getWeight());
             interest.setCreateTime(now);
-            userInterestMapper.insert(interest);
+            interests.add(interest);
         }
+        store.replaceUserInterests(userId, interests);
     }
 
     @Override
     public UserVO findByUsername(String username)
     {
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getUsername, username);
-        User user = userMapper.selectOne(wrapper);
+        User user = store.findUserByUsername(username);
         if (user == null)
         {
             return null;

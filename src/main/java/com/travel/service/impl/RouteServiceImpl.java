@@ -1,13 +1,12 @@
 package com.travel.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.travel.algorithm.graph.Dijkstra;
 import com.travel.algorithm.graph.Edge;
 import com.travel.algorithm.graph.EdgeFilter;
 import com.travel.algorithm.graph.EdgeWeightFunc;
 import com.travel.algorithm.graph.Graph;
 import com.travel.algorithm.graph.PathResult;
-import com.travel.mapper.RoadMapper;
+import com.travel.storage.InMemoryStore;
 import com.travel.model.dto.route.MultiPointRouteRequest;
 import com.travel.model.dto.route.RoutePlanRequest;
 import com.travel.model.entity.Road;
@@ -43,13 +42,13 @@ public class RouteServiceImpl implements RouteService
      */
     private static final double SHUTTLE_SPEED_MPS = 20.0 * 1000 / 3600;
 
-    private final RoadMapper roadMapper;
+    private final InMemoryStore store;
 
     private final Dijkstra dijkstra;
 
-    public RouteServiceImpl(RoadMapper roadMapper)
+    public RouteServiceImpl(InMemoryStore store)
     {
-        this.roadMapper = roadMapper;
+        this.store = store;
         this.dijkstra = new Dijkstra();
     }
 
@@ -168,12 +167,7 @@ public class RouteServiceImpl implements RouteService
 
     private Graph loadGraph(Long areaId)
     {
-        LambdaQueryWrapper<Road> wrapper = new LambdaQueryWrapper<>();
-        if (areaId != null)
-        {
-            wrapper.eq(Road::getAreaId, areaId);
-        }
-        List<Road> roads = roadMapper.selectList(wrapper);
+        List<Road> roads = store.findRoadsByAreaId(areaId);
         Graph graph = new Graph();
         for (Road road : roads)
         {

@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 景区/校园实体，对应 scenic_areas 表。
@@ -52,6 +53,12 @@ public class ScenicArea implements Serializable
 
     @TableField("update_time")
     private LocalDateTime updateTime;
+
+    /**
+     * 运行期动态填充的标签列表（不落库）。
+     */
+    @TableField(exist = false)
+    private List<String> tags;
 
     public Long getId()
     {
@@ -181,6 +188,16 @@ public class ScenicArea implements Serializable
     public void setUpdateTime(LocalDateTime updateTime)
     {
         this.updateTime = updateTime;
+    }
+
+    public List<String> getTags()
+    {
+        return tags;
+    }
+
+    public void setTags(List<String> tags)
+    {
+        this.tags = tags;
     }
 }
 

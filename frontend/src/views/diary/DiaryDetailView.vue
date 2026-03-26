@@ -2,18 +2,20 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { apiDiaryDetail, apiDiaryRate, type DiaryDetailVO } from '../../lib/api'
+import { apiDiaryDetail, apiDiaryRate, apiScenicDetail, type DiaryDetailVO } from '../../lib/api'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
 const auth = useAuthStore()
 const loading = ref(false)
 const diary = ref<DiaryDetailVO | null>(null)
+const destinationLine = ref('')
 
 const rate = reactive({ rating: 5 })
 
-function parseJsonList(s?: string) {
+function parseJsonList(s?: string | string[]) {
   if (!s) return []
+  if (Array.isArray(s)) return s
   try {
     const v = JSON.parse(s)
     return Array.isArray(v) ? v : []
@@ -27,16 +29,38 @@ async function load() {
   try {
     const id = Number(route.params.id)
     diary.value = await apiDiaryDetail(id)
+    destinationLine.value = ''
+    const ids = diary.value.destinations ?? []
+    if (ids.length === 0) return
+    const parts: string[] = []
+    for (const did of ids) {
+      try {
+        const s = await apiScenicDetail(did)
+        parts.push(s.name || `#${did}`)
+      } catch {
+        parts.push(`#${did}`)
+      }
+    }
+    destinationLine.value = parts.join('、')
   } finally {
     loading.value = false
   }
 }
 
 async function submitRate() {
-  if (!diary.value) return
-  await apiDiaryRate({ diaryId: diary.value.id, rating: rate.rating })
-  ElMessage.success('评分成功')
-  await load()
+  if (!diary.value?.id) return
+  try {
+    const r = Number(rate.rating)
+    if (r < 1 || r > 5 || Number.isNaN(r)) {
+      ElMessage.warning('请选择 1～5 星')
+      return
+    }
+    await apiDiaryRate({ diaryId: diary.value.id, rating: r })
+    ElMessage.success('评分成功')
+    await load()
+  } catch {
+    // http 拦截器已提示
+  }
 }
 
 onMounted(load)
@@ -53,6 +77,9 @@ onMounted(load)
       </template>
 
       <div class="content">
+        <div v-if="destinationLine" class="muted" style="margin-bottom: 10px; font-size: 13px">
+          目的地：{{ destinationLine }}
+        </div>
         <div class="text">{{ diary?.content }}</div>
 
         <div v-if="parseJsonList(diary?.images).length" class="gallery">
@@ -78,16 +105,16 @@ onMounted(load)
 
       <div class="glass rateBox">
         <div style="font-weight: 900">评分</div>
-        <div class="muted" style="font-size: 12px; margin-top: 4px">
-          后端接口：<code>/api/diary/rate</code>（需要登录）
-        </div>
+
 
         <div v-if="auth.isAuthed" class="rateRow">
           <el-rate v-model="rate.rating" />
           <el-button type="primary" @click="submitRate">提交评分</el-button>
         </div>
-        <div v-else class="muted" style="margin-top: 10px">
-          请先 <a style="cursor: pointer; color: rgba(34,211,238,0.95)" @click="$router.push('/login')">登录</a> 后评分
+        <div v-else class="muted" style="margin-top: 12px">
+          请先
+          <a style="cursor: pointer; color: var(--accent-main)" @click="$router.push('/login')">登录</a>
+          后评分
         </div>
       </div>
     </el-card>
@@ -103,14 +130,14 @@ onMounted(load)
   line-height: 1.75;
 }
 .gallery {
-  margin-top: 12px;
+  margin-top: 14px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
   align-items: center;
 }
 .link {
-  color: rgba(34, 211, 238, 0.95);
+  color: var(--accent-main);
   text-decoration: none;
   font-size: 12px;
   max-width: 100%;
@@ -118,12 +145,12 @@ onMounted(load)
   text-overflow: ellipsis;
 }
 .rateBox {
-  padding: 12px;
+  padding: 14px;
 }
 .rateRow {
-  margin-top: 10px;
+  margin-top: 12px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   flex-wrap: wrap;
 }

@@ -69,32 +69,32 @@ async function submit() {
   width: min(980px, 100%);
   display: grid;
   grid-template-columns: 1.2fr 1fr;
-  gap: 18px;
-  padding: 18px;
+  gap: 16px;
+  padding: 16px;
 }
 .hero {
-  padding: 18px;
+  padding: 16px;
   border-radius: 16px;
   background:
-    radial-gradient(380px 240px at 20% 20%, rgba(124, 58, 237, 0.32), transparent 65%),
-    radial-gradient(380px 240px at 80% 40%, rgba(34, 211, 238, 0.22), transparent 65%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+    radial-gradient(420px 220px at 18% 15%, var(--accent-pink-2), transparent 60%),
+    radial-gradient(360px 240px at 88% 26%, var(--accent-main-2), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.10);
 }
 .h1 {
-  font-size: 34px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 820;
   margin-bottom: 8px;
 }
 .form {
-  padding: 18px;
+  padding: 14px;
 }
 .links {
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 13px;
 }
 .links a {
-  color: rgba(34, 211, 238, 0.95);
+  color: var(--accent-main);
   cursor: pointer;
   text-decoration: none;
 }

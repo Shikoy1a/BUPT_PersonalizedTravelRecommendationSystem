@@ -1,7 +1,6 @@
 package com.travel.model.dto.diary;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -11,7 +10,7 @@ import java.util.List;
 public class DiaryUpdateRequest
 {
 
-    @NotNull(message = "id 不能为空")
+    /** 由路径参数注入，请求体不必传 */
     private Long id;
 
     @NotBlank(message = "title 不能为空")
@@ -23,6 +22,12 @@ public class DiaryUpdateRequest
     private List<String> images;
 
     private List<String> videos;
+
+    /**
+     * 目的地（可选；编辑时前端会传）。
+     * 若不传则保持原有关联不变。
+     */
+    private List<Long> destinations;
 
     public Long getId()
     {
@@ -72,6 +77,16 @@ public class DiaryUpdateRequest
     public void setVideos(List<String> videos)
     {
         this.videos = videos;
+    }
+
+    public List<Long> getDestinations()
+    {
+        return destinations;
+    }
+
+    public void setDestinations(List<Long> destinations)
+    {
+        this.destinations = destinations;
     }
 }
 

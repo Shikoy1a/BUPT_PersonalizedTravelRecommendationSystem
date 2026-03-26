@@ -1,14 +1,23 @@
 <script setup lang="ts">
+import { ElMessage } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
-import { apiFacilityDetail, apiFacilityNearby, apiFacilitySearch, type Facility, type FacilityNearbyVO } from '../../lib/api'
+import {
+  apiFacilityDetail,
+  apiFacilityNearby,
+  apiFacilitySearch,
+  apiScenicSearchByKeyword,
+  type Facility,
+  type FacilityNearbyVO,
+  type ScenicArea,
+} from '../../lib/api'
 
 const tab = ref<'nearby' | 'search'>('nearby')
 const loading = ref(false)
 
 const nearbyForm = reactive({
-  lat: 30.0,
-  lng: 120.0,
-  radius: 500,
+  lat: undefined as number | undefined,
+  lng: undefined as number | undefined,
+  radius: undefined as number | undefined,
   type: '',
   areaId: undefined as number | undefined,
 })
@@ -18,19 +27,84 @@ const searchForm = reactive({
   keyword: '',
   type: '',
   areaId: undefined as number | undefined,
-  limit: 50,
+  limit: undefined as number | undefined,
 })
 const searchList = ref<Facility[]>([])
+
+const nearbyAreaOpts = ref<ScenicArea[]>([])
+const searchAreaOpts = ref<ScenicArea[]>([])
+const nearbyAreaLoading = ref(false)
+const searchAreaLoading = ref(false)
+let nearbyAreaSeq = 0
+let searchAreaSeq = 0
+
+async function remoteNearbyArea(keyword: string) {
+  const q = keyword.trim()
+  if (!q) {
+    nearbyAreaSeq++
+    nearbyAreaOpts.value = []
+    return
+  }
+  const seq = ++nearbyAreaSeq
+  nearbyAreaLoading.value = true
+  try {
+    nearbyAreaOpts.value = await apiScenicSearchByKeyword({ keyword: q, limit: 50 })
+  } finally {
+    if (seq === nearbyAreaSeq) nearbyAreaLoading.value = false
+  }
+}
+
+async function remoteSearchArea(keyword: string) {
+  const q = keyword.trim()
+  if (!q) {
+    searchAreaSeq++
+    searchAreaOpts.value = []
+    return
+  }
+  const seq = ++searchAreaSeq
+  searchAreaLoading.value = true
+  try {
+    searchAreaOpts.value = await apiScenicSearchByKeyword({ keyword: q, limit: 50 })
+  } finally {
+    if (seq === searchAreaSeq) searchAreaLoading.value = false
+  }
+}
 
 const detail = ref<Facility | null>(null)
 const detailOpen = ref(false)
 
+async function ensureLocation() {
+  if (nearbyForm.lat != null && nearbyForm.lng != null) return true
+
+  if (!('geolocation' in navigator)) {
+    ElMessage.warning('浏览器不支持定位功能')
+    return false
+  }
+
+  return new Promise<boolean>((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        nearbyForm.lat = pos.coords.latitude
+        nearbyForm.lng = pos.coords.longitude
+        resolve(true)
+      },
+      (err) => {
+        ElMessage.warning(`获取定位失败：${err.message || '未知原因'}`)
+        resolve(false)
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+    )
+  })
+}
+
 async function loadNearby() {
+  const ok = await ensureLocation()
+  if (!ok) return
   loading.value = true
   try {
     nearbyList.value = await apiFacilityNearby({
-      lat: nearbyForm.lat,
-      lng: nearbyForm.lng,
+      lat: nearbyForm.lat as number,
+      lng: nearbyForm.lng as number,
       radius: nearbyForm.radius,
       type: nearbyForm.type || undefined,
       areaId: nearbyForm.areaId,
@@ -59,7 +133,9 @@ async function openDetail(id: number) {
   detailOpen.value = true
 }
 
-onMounted(loadNearby)
+onMounted(() => {
+  // 不在这里自动请求；点击“查询”时才会尝试浏览器定位后调用后端
+})
 </script>
 
 <template>
@@ -69,18 +145,45 @@ onMounted(loadNearby)
         <div style="font-weight: 900">设施查询</div>
       </template>
 
-      <el-tabs v-model="tab" @tab-change="(n: string | number)=>{ if(n==='nearby') loadNearby(); else loadSearch(); }">
+      <el-tabs v-model="tab">
         <el-tab-pane label="附近设施" name="nearby">
-          <div class="formRow">
-            <el-input-number v-model="nearbyForm.lat" :step="0.0001" controls-position="right" placeholder="lat" />
-            <el-input-number v-model="nearbyForm.lng" :step="0.0001" controls-position="right" placeholder="lng" />
-            <el-input-number v-model="nearbyForm.radius" :min="50" :step="50" placeholder="radius(m)" />
-            <el-input v-model="nearbyForm.type" placeholder="type(可选)" clearable />
-            <el-input-number v-model="nearbyForm.areaId" :min="1" placeholder="areaId(可选)" />
-            <el-button type="primary" :loading="loading" @click="loadNearby">查询</el-button>
+          <div class="formRow nearbyRow">
+            <el-input-number
+              v-model="nearbyForm.radius"
+              :min="50"
+              :step="50"
+              :controls="false"
+              placeholder="距离"
+              class="nearbyRadius"
+            />
+            <el-input v-model="nearbyForm.type" placeholder="类型" clearable class="nearbyType" />
+            <el-select
+              v-model="nearbyForm.areaId"
+              filterable
+              remote
+              clearable
+              :reserve-keyword="false"
+              placeholder="景区（可选，输入名称关键字）"
+              :remote-method="remoteNearbyArea"
+              :loading="nearbyAreaLoading"
+              style="min-width: 220px"
+            >
+              <el-option
+                v-for="o in nearbyAreaOpts"
+                :key="o.id"
+                :label="`${o.name}（ID ${o.id}）`"
+                :value="o.id"
+              />
+            </el-select>
+            <el-button type="primary" :loading="loading" class="nearbyBtn" @click="loadNearby">查询</el-button>
           </div>
 
-          <el-table :data="nearbyList" v-loading="loading" style="width: 100%; margin-top: 12px" @row-click="(r: FacilityNearbyVO)=>openDetail(r.id)">
+          <div class="muted" style="margin-top: 8px; font-size: 12px; color: var(--text-2)">
+            查询附近时会自动使用浏览器定位计算距离（请允许定位权限）。
+          </div>
+
+
+          <el-table :data="nearbyList" v-loading="loading" style="width: 100%; margin-top: 16px" @row-click="(r: FacilityNearbyVO)=>openDetail(r.id)">
             <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="name" label="名称" />
             <el-table-column prop="type" label="类型" width="120" />
@@ -91,14 +194,32 @@ onMounted(loadNearby)
 
         <el-tab-pane label="搜索" name="search">
           <div class="formRow">
-            <el-input v-model="searchForm.keyword" placeholder="keyword(可选)" clearable />
-            <el-input v-model="searchForm.type" placeholder="type(可选)" clearable />
-            <el-input-number v-model="searchForm.areaId" :min="1" placeholder="areaId(可选)" />
-            <el-input-number v-model="searchForm.limit" :min="1" :max="200" placeholder="limit" />
+            <el-input v-model="searchForm.keyword" placeholder="关键字（可选）" clearable />
+            <el-input v-model="searchForm.type" placeholder="类型（可选）" clearable />
+            <el-select
+              v-model="searchForm.areaId"
+              filterable
+              remote
+              clearable
+              :reserve-keyword="false"
+              placeholder="景区（可选，输入名称关键字）"
+              :remote-method="remoteSearchArea"
+              :loading="searchAreaLoading"
+              style="min-width: 280px"
+            >
+              <el-option
+                v-for="o in searchAreaOpts"
+                :key="o.id"
+                :label="`${o.name}（ID ${o.id}）`"
+                :value="o.id"
+              />
+            </el-select>
+            <el-input-number v-model="searchForm.limit" :min="1" :max="200" :controls="false" placeholder="最多返回条数 limit（可选）" />
             <el-button type="primary" :loading="loading" @click="loadSearch">查询</el-button>
           </div>
 
-          <el-table :data="searchList" v-loading="loading" style="width: 100%; margin-top: 12px" @row-click="(r: Facility)=>openDetail(r.id)">
+
+          <el-table :data="searchList" v-loading="loading" style="width: 100%; margin-top: 16px" @row-click="(r: Facility)=>openDetail(r.id)">
             <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="name" label="名称" />
             <el-table-column prop="type" label="类型" width="120" />
@@ -127,6 +248,33 @@ onMounted(loadNearby)
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.nearbyRow {
+  flex-wrap: nowrap; /* 让半径/类型/景区/查询在桌面端尽量保持同一排 */
+}
+
+.nearbyRadius {
+  width: 170px;
+}
+
+.nearbyType {
+  width: 160px;
+}
+
+.nearbyBtn {
+  flex-shrink: 1;
+  min-width: 96px;
+}
+
+@media (max-width: 780px) {
+  .nearbyRow {
+    flex-wrap: wrap;
+  }
+}
+.hint {
+  margin-top: 8px;
+  font-size: 12px;
 }
 .drawer {
   padding: 16px;

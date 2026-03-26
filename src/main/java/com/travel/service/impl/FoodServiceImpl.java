@@ -1,17 +1,12 @@
 package com.travel.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.travel.algorithm.TopKSelector;
-import com.travel.mapper.CommentMapper;
-import com.travel.mapper.FoodMapper;
-import com.travel.mapper.RestaurantMapper;
-import com.travel.model.entity.Comment;
 import com.travel.model.entity.Food;
 import com.travel.model.entity.Restaurant;
+import com.travel.storage.InMemoryStore;
 import com.travel.model.vo.food.FoodRecommendVO;
 import com.travel.service.FoodService;
 import com.travel.util.GeoUtil;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,8 +16,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * 美食服务实现。
@@ -39,21 +32,13 @@ public class FoodServiceImpl implements FoodService
 
     private static final double DEFAULT_WEIGHT_DISTANCE = 0.2;
 
-    private final FoodMapper foodMapper;
-
-    private final RestaurantMapper restaurantMapper;
-
-    private final CommentMapper commentMapper;
+    private final InMemoryStore store;
 
     private final TopKSelector<FoodRecommendVO> topKSelector;
 
-    public FoodServiceImpl(FoodMapper foodMapper,
-                           RestaurantMapper restaurantMapper,
-                           CommentMapper commentMapper)
+    public FoodServiceImpl(InMemoryStore store)
     {
-        this.foodMapper = foodMapper;
-        this.restaurantMapper = restaurantMapper;
-        this.commentMapper = commentMapper;
+        this.store = store;
         this.topKSelector = new TopKSelector<>();
     }
 
@@ -73,6 +58,25 @@ public class FoodServiceImpl implements FoodService
             throw new IllegalArgumentException("areaId 不能为空");
         }
 
+        // 如果前端不传经纬度，则尝试用景区自身坐标做距离估计（用于“距离排序”）。
+        Double effectiveLat = lat;
+        Double effectiveLng = lng;
+        if (effectiveLat == null || effectiveLng == null)
+        {
+            var area = store.findScenicAreaById(areaId);
+            if (area != null)
+            {
+                if (effectiveLat == null)
+                {
+                    effectiveLat = area.getLatitude();
+                }
+                if (effectiveLng == null)
+                {
+                    effectiveLng = area.getLongitude();
+                }
+            }
+        }
+
         int r = radiusMeters == null || radiusMeters <= 0 ? DEFAULT_RADIUS_METERS : radiusMeters;
         double wHeat = weightHeat == null ? DEFAULT_WEIGHT_HEAT : weightHeat;
         double wRating = weightRating == null ? DEFAULT_WEIGHT_RATING : weightRating;
@@ -84,15 +88,26 @@ public class FoodServiceImpl implements FoodService
         // 取需要的 TopN = page * size，避免全排序
         int topN = p * s;
 
-        LambdaQueryWrapper<Food> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Food::getAreaId, areaId);
-        List<Food> foods = foodMapper.selectList(wrapper);
+        List<Food> foods = store.findFoodsByAreaId(areaId);
         if (foods.isEmpty())
         {
             return List.of();
         }
 
-        Map<Long, Restaurant> restaurantMap = loadRestaurants(foods);
+        Map<Long, Restaurant> restaurantMap = new HashMap<>();
+        for (Food f : foods)
+        {
+            Long restaurantId = f.getRestaurantId();
+            if (restaurantId == null || restaurantMap.containsKey(restaurantId))
+            {
+                continue;
+            }
+            Restaurant restaurant = store.findRestaurantById(restaurantId);
+            if (restaurant != null)
+            {
+                restaurantMap.put(restaurantId, restaurant);
+            }
+        }
 
         List<FoodRecommendVO> candidates = new ArrayList<>(foods.size());
         int maxHeat = 0;
@@ -108,7 +123,7 @@ public class FoodServiceImpl implements FoodService
             maxHeat = 1;
         }
 
-        boolean hasLocation = lat != null && lng != null;
+        boolean hasLocation = effectiveLat != null && effectiveLng != null;
         for (Food food : foods)
         {
             Restaurant restaurant = restaurantMap.get(food.getRestaurantId());
@@ -120,7 +135,7 @@ public class FoodServiceImpl implements FoodService
             Double distance = null;
             if (hasLocation && restaurant.getLatitude() != null && restaurant.getLongitude() != null)
             {
-                distance = GeoUtil.distanceMeters(lat, lng, restaurant.getLatitude(), restaurant.getLongitude());
+                distance = GeoUtil.distanceMeters(effectiveLat, effectiveLng, restaurant.getLatitude(), restaurant.getLongitude());
                 if (distance > r)
                 {
                     continue;
@@ -160,29 +175,40 @@ public class FoodServiceImpl implements FoodService
         int p = page == null || page < 1 ? 1 : page;
         int s = size == null || size <= 0 ? 10 : Math.min(size, 50);
         int offset = (p - 1) * s;
+        int fetch = offset + s;
 
-        LambdaQueryWrapper<Food> wrapper = new LambdaQueryWrapper<>();
-        if (areaId != null)
+        List<Food> candidates = store.searchFoods(keyword, cuisine, areaId, fetch);
+        if (candidates.isEmpty())
         {
-            wrapper.eq(Food::getAreaId, areaId);
+            return List.of();
         }
-        if (StringUtils.isNotBlank(cuisine))
+
+        // DB 这里是按 heat desc, rating desc 排序；内存里用同样规则近似。
+        candidates.sort((a, b) ->
         {
-            wrapper.eq(Food::getCuisine, cuisine);
-        }
-        if (StringUtils.isNotBlank(keyword))
+            int heatA = a.getHeat() == null ? 0 : a.getHeat();
+            int heatB = b.getHeat() == null ? 0 : b.getHeat();
+            if (heatA != heatB)
+            {
+                return Integer.compare(heatB, heatA);
+            }
+            double ratingA = a.getRating() == null ? 0.0 : a.getRating();
+            double ratingB = b.getRating() == null ? 0.0 : b.getRating();
+            return Double.compare(ratingB, ratingA);
+        });
+
+        if (offset >= candidates.size())
         {
-            wrapper.and(w -> w.like(Food::getName, keyword).or().like(Food::getDescription, keyword));
+            return List.of();
         }
-        wrapper.orderByDesc(Food::getHeat).orderByDesc(Food::getRating);
-        wrapper.last("limit " + offset + "," + s);
-        return foodMapper.selectList(wrapper);
+        int to = Math.min(offset + s, candidates.size());
+        return candidates.subList(offset, to);
     }
 
     @Override
     public Food detail(Long id)
     {
-        Food food = foodMapper.selectById(id);
+        Food food = store.findFoodById(id);
         if (food == null)
         {
             throw new IllegalArgumentException("美食不存在");
@@ -194,13 +220,13 @@ public class FoodServiceImpl implements FoodService
     @Transactional(rollbackFor = Exception.class)
     public void rate(Long userId, Long foodId, double rating, String comment)
     {
-        Food food = foodMapper.selectById(foodId);
+        Food food = store.findFoodById(foodId);
         if (food == null)
         {
             throw new IllegalArgumentException("美食不存在");
         }
 
-        Comment c = new Comment();
+        com.travel.model.entity.Comment c = new com.travel.model.entity.Comment();
         c.setUserId(userId);
         c.setTargetId(foodId);
         c.setTargetType("FOOD");
@@ -209,43 +235,11 @@ public class FoodServiceImpl implements FoodService
         LocalDateTime now = LocalDateTime.now();
         c.setCreateTime(now);
         c.setUpdateTime(now);
-        commentMapper.insert(c);
+        store.insertComment(c);
 
-        // 评分聚合：用 comments 表对 FOOD 的评分做平均回写 foods.rating
-        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Comment::getTargetType, "FOOD").eq(Comment::getTargetId, foodId);
-        List<Comment> comments = commentMapper.selectList(wrapper);
-        double avg = comments.stream()
-            .map(Comment::getRating)
-            .filter(Objects::nonNull)
-            .mapToDouble(Double::doubleValue)
-            .average()
-            .orElse(rating);
-
-        Food update = new Food();
-        update.setId(foodId);
-        update.setRating(avg);
-        foodMapper.updateById(update);
-    }
-
-    private Map<Long, Restaurant> loadRestaurants(List<Food> foods)
-    {
-        List<Long> ids = foods.stream()
-            .map(Food::getRestaurantId)
-            .filter(Objects::nonNull)
-            .distinct()
-            .collect(Collectors.toList());
-        if (ids.isEmpty())
-        {
-            return Map.of();
-        }
-        List<Restaurant> list = restaurantMapper.selectBatchIds(ids);
-        Map<Long, Restaurant> map = new HashMap<>(list.size());
-        for (Restaurant r : list)
-        {
-            map.put(r.getId(), r);
-        }
-        return map;
+        double avg = store.getAverageRating("FOOD", foodId, rating);
+        food.setRating(avg);
+        store.updateFood(food);
     }
 
     private double calcScore(Food food,

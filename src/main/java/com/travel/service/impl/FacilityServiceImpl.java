@@ -1,18 +1,15 @@
 package com.travel.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.travel.algorithm.graph.Dijkstra;
 import com.travel.algorithm.graph.Edge;
 import com.travel.algorithm.graph.Graph;
 import com.travel.algorithm.graph.PathResult;
-import com.travel.mapper.FacilityMapper;
-import com.travel.mapper.RoadMapper;
+import com.travel.storage.InMemoryStore;
 import com.travel.model.entity.Facility;
 import com.travel.model.entity.Road;
 import com.travel.model.vo.facility.FacilityNearbyVO;
 import com.travel.service.FacilityService;
 import com.travel.util.GeoUtil;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -35,16 +32,13 @@ import java.util.List;
 public class FacilityServiceImpl implements FacilityService
 {
 
-    private final FacilityMapper facilityMapper;
-
-    private final RoadMapper roadMapper;
+    private final InMemoryStore store;
 
     private final Dijkstra dijkstra;
 
-    public FacilityServiceImpl(FacilityMapper facilityMapper, RoadMapper roadMapper)
+    public FacilityServiceImpl(InMemoryStore store)
     {
-        this.facilityMapper = facilityMapper;
-        this.roadMapper = roadMapper;
+        this.store = store;
         this.dijkstra = new Dijkstra();
     }
 
@@ -52,17 +46,7 @@ public class FacilityServiceImpl implements FacilityService
     public List<FacilityNearbyVO> nearby(double lat, double lng, int radius, String type, Long areaId)
     {
         int r = radius <= 0 ? 500 : radius;
-
-        LambdaQueryWrapper<Facility> wrapper = new LambdaQueryWrapper<>();
-        if (areaId != null)
-        {
-            wrapper.eq(Facility::getAreaId, areaId);
-        }
-        if (StringUtils.isNotBlank(type))
-        {
-            wrapper.eq(Facility::getType, type);
-        }
-        List<Facility> all = facilityMapper.selectList(wrapper);
+        List<Facility> all = store.findFacilitiesByAreaIdAndType(areaId, type);
         if (all.isEmpty())
         {
             return List.of();
@@ -122,27 +106,13 @@ public class FacilityServiceImpl implements FacilityService
     public List<Facility> search(String keyword, String type, Long areaId, int limit)
     {
         int l = limit <= 0 ? 50 : Math.min(limit, 200);
-        LambdaQueryWrapper<Facility> wrapper = new LambdaQueryWrapper<>();
-        if (areaId != null)
-        {
-            wrapper.eq(Facility::getAreaId, areaId);
-        }
-        if (StringUtils.isNotBlank(type))
-        {
-            wrapper.eq(Facility::getType, type);
-        }
-        if (StringUtils.isNotBlank(keyword))
-        {
-            wrapper.and(w -> w.like(Facility::getName, keyword).or().like(Facility::getType, keyword));
-        }
-        wrapper.last("limit " + l);
-        return facilityMapper.selectList(wrapper);
+        return store.searchFacilities(keyword, type, areaId, l);
     }
 
     @Override
     public Facility detail(Long id)
     {
-        Facility facility = facilityMapper.selectById(id);
+        Facility facility = store.findFacilityById(id);
         if (facility == null)
         {
             throw new IllegalArgumentException("设施不存在");
@@ -152,12 +122,7 @@ public class FacilityServiceImpl implements FacilityService
 
     private Graph loadGraph(Long areaId)
     {
-        LambdaQueryWrapper<Road> wrapper = new LambdaQueryWrapper<>();
-        if (areaId != null)
-        {
-            wrapper.eq(Road::getAreaId, areaId);
-        }
-        List<Road> roads = roadMapper.selectList(wrapper);
+        List<Road> roads = store.findRoadsByAreaId(areaId);
         Graph graph = new Graph();
         for (Road road : roads)
         {

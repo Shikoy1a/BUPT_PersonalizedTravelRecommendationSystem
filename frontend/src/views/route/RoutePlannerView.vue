@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { ElMessage } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import * as echarts from 'echarts'
-import { apiMapData, apiPlanRoute, apiPlanRouteMulti } from '../../lib/api'
+import { apiMapData, apiPlanRoute, apiPlanRouteMulti, apiScenicSearchByKeyword, type ScenicArea } from '../../lib/api'
 
 type Edge = {
   startId: number
@@ -19,14 +20,34 @@ let chart: echarts.ECharts | null = null
 
 const form = reactive({
   areaId: undefined as number | undefined,
-  startId: 1,
-  endId: 2,
-  vehicle: 'walk',
-  strategy: 'distance' as 'distance' | 'time',
-  multiPoints: '1,2,3',
+  startId: null as number | null,
+  endId: null as number | null,
+  vehicle: '' as string,
+  strategy: '' as '' | 'distance' | 'time',
+  multiPoints: '',
 })
 
 const result = ref<{ path: number[]; distance: number; time: number } | null>(null)
+
+const areaOpts = ref<ScenicArea[]>([])
+const areaLoading = ref(false)
+let areaSeq = 0
+
+async function remoteArea(keyword: string) {
+  const q = keyword.trim()
+  if (!q) {
+    areaSeq++
+    areaOpts.value = []
+    return
+  }
+  const seq = ++areaSeq
+  areaLoading.value = true
+  try {
+    areaOpts.value = await apiScenicSearchByKeyword({ keyword: q, limit: 50 })
+  } finally {
+    if (seq === areaSeq) areaLoading.value = false
+  }
+}
 
 function renderGraph(highlightPath?: number[]) {
   if (!chartEl.value || !map.value) return
@@ -37,8 +58,8 @@ function renderGraph(highlightPath?: number[]) {
     name: String(id),
     symbolSize: highlightPath?.includes(id) ? 18 : 10,
     itemStyle: highlightPath?.includes(id)
-      ? { color: 'rgba(34,211,238,0.95)' }
-      : { color: 'rgba(124,58,237,0.85)' },
+      ? { color: 'rgba(204,120,92,0.95)' }
+      : { color: 'rgba(255,255,255,0.65)' },
   }))
 
   const pathSet = new Set<string>()
@@ -57,8 +78,8 @@ function renderGraph(highlightPath?: number[]) {
       target: String(e.endId),
       value: e.distance,
       lineStyle: isOnPath
-        ? { width: 4, color: 'rgba(34,211,238,0.95)' }
-        : { width: 1, color: 'rgba(255,255,255,0.18)' },
+        ? { width: 3, color: 'rgba(204,120,92,0.95)' }
+        : { width: 1, color: 'rgba(255,255,255,0.12)' },
     }
   })
 
@@ -91,14 +112,18 @@ async function loadMap() {
 }
 
 async function plan() {
+  if (!form.startId || !form.endId) {
+    ElMessage.warning('请填写 起点节点 ID 和 终点节点 ID（必填）')
+    return
+  }
   loading.value = true
   try {
     result.value = await apiPlanRoute({
       areaId: form.areaId,
       startId: Number(form.startId),
       endId: Number(form.endId),
-      vehicle: form.vehicle,
-      strategy: form.strategy,
+      vehicle: form.vehicle || undefined,
+      strategy: form.strategy || undefined,
     })
     renderGraph(result.value.path)
   } finally {
@@ -111,15 +136,18 @@ async function planMulti() {
     .split(',')
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n))
-  if (points.length < 2) return
+  if (points.length < 2) {
+    ElMessage.warning('多点规划至少需要 2 个节点 ID（用逗号分隔）')
+    return
+  }
 
   loading.value = true
   try {
     result.value = await apiPlanRouteMulti({
       areaId: form.areaId,
       points,
-      vehicle: form.vehicle,
-      strategy: form.strategy,
+      vehicle: form.vehicle || undefined,
+      strategy: form.strategy || undefined,
     })
     renderGraph(result.value.path)
   } finally {
@@ -139,8 +167,25 @@ onMounted(loadMap)
         </template>
 
         <el-form label-position="top">
-          <el-form-item label="areaId（可选）">
-            <el-input-number v-model="form.areaId" :min="1" :controls="true" placeholder="不填则全局图" style="width: 100%" />
+          <el-form-item label="景区">
+            <el-select
+              v-model="form.areaId"
+              filterable
+              remote
+              clearable
+              :reserve-keyword="false"
+              placeholder="输入关键字"
+              :remote-method="remoteArea"
+              :loading="areaLoading"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="o in areaOpts"
+                :key="o.id"
+                :label="`${o.name}（ID ${o.id}）`"
+                :value="o.id"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="交通工具">
             <el-segmented
@@ -160,11 +205,23 @@ onMounted(loadMap)
           </el-form-item>
 
           <div class="row">
-            <el-form-item label="起点ID">
-              <el-input-number v-model="form.startId" :min="1" style="width: 100%" />
+            <el-form-item label="起点节点 ID（必填）">
+              <el-input-number
+                v-model="form.startId"
+                :min="1"
+                :controls="false"
+                placeholder="起点节点ID"
+                style="width: 100%"
+              />
             </el-form-item>
-            <el-form-item label="终点ID">
-              <el-input-number v-model="form.endId" :min="1" style="width: 100%" />
+            <el-form-item label="终点节点 ID（必填）">
+              <el-input-number
+                v-model="form.endId"
+                :min="1"
+                :controls="false"
+                placeholder="终点节点ID"
+                style="width: 100%"
+              />
             </el-form-item>
           </div>
 
@@ -175,8 +232,8 @@ onMounted(loadMap)
 
           <el-divider />
 
-          <el-form-item label="多点规划（points 用逗号分隔）">
-            <el-input v-model="form.multiPoints" placeholder="例如：1,2,3,4" />
+          <el-form-item label="多点规划（用逗号分隔）">
+            <el-input v-model="form.multiPoints" placeholder="输入多个节点 ID，用逗号分隔（必填：至少 2 个点）" />
           </el-form-item>
           <el-button type="primary" plain @click="planMulti" :loading="loading">多点规划</el-button>
 
@@ -192,10 +249,8 @@ onMounted(loadMap)
       <el-card class="glass" shadow="never">
         <template #header>
           <div style="display: flex; justify-content: space-between; align-items: center">
-            <div style="font-weight: 900">节点/边可视化</div>
-            <div class="muted" style="font-size: 12px">
-              后端 <code>/api/route/map-data</code> 返回 nodes/edges（节点为ID列表）
-            </div>
+            <div style="font-weight: 900">节点 / 路径</div>
+            <div class="muted" style="font-size: 12px">当前规划会高亮路径</div>
           </div>
         </template>
         <div ref="chartEl" class="chart" />
@@ -207,22 +262,26 @@ onMounted(loadMap)
 <style scoped>
 .grid {
   display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 12px;
+  grid-template-columns: 400px 1fr;
+  gap: 16px;
 }
 .row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 .actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .result {
   margin-top: 12px;
-  padding: 12px;
+  padding: 14px;
+}
+.hint {
+  margin-top: 6px;
+  font-size: 12px;
 }
 .chart {
   height: 560px;
