@@ -44,7 +44,7 @@ async function refreshToken() {
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center">
           <div style="font-weight: 800">个人中心</div>
-          <el-tag effect="dark" type="success">{{ auth.user?.role || 'USER' }}</el-tag>
+          <el-tag effect="plain">{{ auth.user?.role || 'USER' }}</el-tag>
         </div>
       </template>
 
@@ -66,8 +66,8 @@ async function refreshToken() {
           <el-button type="primary" :loading="loading" @click="saveInterest">保存兴趣</el-button>
           <el-button @click="refreshToken">刷新 Token</el-button>
         </div>
-        <div class="muted" style="margin-top: 6px; font-size: 12px">
-          个性化推荐接口为 <code>/api/recommendation/personalized</code>，需要登录且依赖兴趣设置。
+        <div class="hint muted">
+          输入格式：用英文逗号分隔多个兴趣，例如 <code>海边, 美食, 校园</code>。
         </div>
       </div>
     </el-card>
@@ -85,7 +85,7 @@ async function refreshToken() {
 }
 .k {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--text-2);
 }
 .v {
   font-size: 16px;
@@ -94,9 +94,14 @@ async function refreshToken() {
 }
 .actions {
   display: flex;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 12px;
   flex-wrap: wrap;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 12px;
 }
 @media (max-width: 720px) {
   .grid {

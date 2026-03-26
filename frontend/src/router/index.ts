@@ -22,7 +22,8 @@ const router = createRouter({
       path: '/',
       component: () => import('../layouts/AppLayout.vue'),
       children: [
-        { path: 'home', component: () => import('../views/HomeView.vue') },
+        { path: 'home', component: () => import('../views/HomePageView.vue') },
+        { path: 'recommend', component: () => import('../views/HomeView.vue') },
         { path: 'scenic/:id', component: () => import('../views/scenic/ScenicDetailView.vue') },
         { path: 'route', component: () => import('../views/route/RoutePlannerView.vue') },
         { path: 'facility', component: () => import('../views/facility/FacilityView.vue') },

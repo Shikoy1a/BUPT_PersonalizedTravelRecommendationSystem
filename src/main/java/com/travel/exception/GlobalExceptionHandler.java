@@ -44,6 +44,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception ex) {
+        // 方便定位线上/控制台问题：返回统一文案，但在服务端输出真实堆栈。
+        ex.printStackTrace();
         return ResponseEntity
                 .status(500)
                 .body(ApiResponse.failure(500, "服务器内部错误"));

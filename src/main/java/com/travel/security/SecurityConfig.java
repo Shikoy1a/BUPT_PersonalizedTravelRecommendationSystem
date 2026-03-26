@@ -54,6 +54,7 @@ public class SecurityConfig
                 .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/recommendation/scenic-search").permitAll()
                 .requestMatchers("/api/**").authenticated()
             )
             .httpBasic(Customizer.withDefaults());

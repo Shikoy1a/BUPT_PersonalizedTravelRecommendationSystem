@@ -1,0 +1,183 @@
+@import url('https://fonts.googleapis.com/css2?family=Tiempos+Headline:wght@400;500&display=swap');
+
+/* Claude-style warm light theme overrides */
+:root {
+  --bg-base: #f5f4ef;
+  --bg-surface: #ffffff;
+  --bg-subtle: #eeece6;
+  --bg-sidebar: #e8e6df;
+
+  --text-primary: #1a1a18;
+  --text-secondary: #6b6860;
+  --text-muted: #9b9890;
+
+  --accent: #cc785c;
+  --accent-hover: #b8664a;
+
+  --border: #d4d2ca;
+  --border-subtle: #e8e6df;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Element Plus primary tone override */
+  --el-color-primary: #cc785c;
+  --el-color-primary-light-3: #d9967f;
+  --el-color-primary-light-5: #e3ad99;
+  --el-color-primary-light-7: #edc4b9;
+  --el-color-primary-light-8: #f2d2c9;
+  --el-color-primary-light-9: #f7e4de;
+  --el-color-primary-dark-2: #b8664a;
+}
+
+/* Map previous variables to new palette for compatibility */
+:root {
+  --text: var(--text-primary);
+  --text-2: var(--text-secondary);
+  --text-3: var(--text-muted);
+  --accent-main: var(--accent);
+  --accent-ring: rgba(204, 120, 92, 0.35);
+}
+
+body {
+  background: var(--bg-base) !important;
+  color: var(--text-primary) !important;
+  font-family: 'Söhne', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.page {
+  max-width: 760px !important;
+}
+
+.glass {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.muted {
+  color: var(--text-secondary) !important;
+}
+
+.el-card {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none !important;
+  color: var(--text-primary) !important;
+}
+
+.el-form-item__label {
+  color: var(--text-secondary) !important;
+}
+
+.el-input__wrapper,
+.el-textarea__inner {
+  background: var(--bg-surface) !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-sm) !important;
+  color: var(--text-primary) !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.12) !important;
+}
+
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.el-button {
+  border-radius: var(--radius-md) !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.el-button--primary {
+  background: var(--text-primary) !important;
+  color: var(--bg-base) !important;
+  border: none !important;
+}
+.el-button--primary:hover {
+  opacity: 0.85;
+}
+
+.el-button:not(.el-button--primary) {
+  background: transparent !important;
+  border: 1.5px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.el-button:not(.el-button--primary):hover {
+  background: var(--bg-subtle) !important;
+}
+
+.el-tag {
+  background: var(--bg-subtle) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: var(--text-secondary) !important;
+}
+
+.el-menu-item {
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-secondary) !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.el-menu-item:hover {
+  background: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+}
+
+.el-menu-item.is-active {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Force active text/bars that still use default primary */
+.el-tabs__item.is-active,
+.el-tabs__item:hover {
+  color: var(--accent) !important;
+}
+
+.el-tabs__active-bar {
+  background-color: var(--accent) !important;
+}
+
+.el-segmented {
+  --el-segmented-item-selected-color: #ffffff;
+  --el-segmented-item-selected-bg-color: var(--accent);
+  --el-segmented-item-hover-bg-color: var(--bg-subtle);
+}
+
+.el-radio-button__orig-radio:checked + .el-radio-button__inner {
+  background-color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  box-shadow: -1px 0 0 0 var(--accent) !important;
+}
+
+.fade-in {
+  animation: fadeUp 0.25s ease forwards;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

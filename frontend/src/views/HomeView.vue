@@ -2,22 +2,21 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  apiRecommendationHot,
   apiRecommendationList,
   apiRecommendationPersonalized,
-  type PageData,
   type ScenicArea,
   type ScenicAreaRecommendVO,
 } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
-const tab = ref<'recommend' | 'hot' | 'personalized'>('recommend')
+const tab = ref<'recommend' | 'personalized'>('recommend')
 
 const query = reactive({
   page: 1,
   size: 8,
   type: '' as string | '',
+  tagKeyword: '' as string | '',
 })
 
 const loading = ref(false)
@@ -27,20 +26,37 @@ const pList = ref<ScenicAreaRecommendVO[]>([])
 const pTotal = ref(0)
 
 const canPersonal = computed(() => auth.isAuthed)
+const presetTagOptions = ['山岳', '古镇', '美食', '历史', '自然', '文化', '亲子', '徒步', '摄影']
+
+const tagOptions = computed(() => {
+  const set = new Set<string>(presetTagOptions)
+  ;(auth.user?.interests ?? []).forEach((tag) => {
+    const v = (tag || '').trim()
+    if (v) set.add(v)
+  })
+  ;[...list.value, ...pList.value].forEach((item) => {
+    displayTags(item).forEach((tag) => {
+      const v = (tag || '').trim()
+      if (v && v !== '暂无标签') set.add(v)
+    })
+  })
+  return Array.from(set)
+})
+
+function displayTags(item: ScenicArea | ScenicAreaRecommendVO): string[] {
+  const tags = item.tags ?? []
+  if (tags.length > 0) {
+    return tags.slice(0, 2)
+  }
+  if (item.type) {
+    return [item.type]
+  }
+  return ['暂无标签']
+}
 
 async function load() {
   loading.value = true
   try {
-    if (tab.value === 'hot') {
-      const data: PageData<ScenicArea> = await apiRecommendationHot({
-        page: query.page,
-        size: query.size,
-        type: query.type || undefined,
-      })
-      list.value = data.list
-      total.value = data.total
-      return
-    }
     if (tab.value === 'personalized') {
       if (!canPersonal.value) {
         ElMessage.info('登录后可使用个性化推荐')
@@ -51,6 +67,7 @@ async function load() {
         page: query.page,
         size: query.size,
         type: query.type || undefined,
+        tagKeyword: query.tagKeyword || undefined,
       })
       pList.value = data.list
       pTotal.value = data.total
@@ -78,16 +95,31 @@ onMounted(load)
     <div class="hero glass">
       <div class="h1">探索你的下一段旅程</div>
       <div class="muted">
-        热门景区、个性化推荐、路线规划与周边设施一站式体验。后端返回统一为 <code>{code,data,message}</code>，前端已做统一处理。
+        热门景区、个性化推荐、路线规划与周边设施一站式体验。
       </div>
       <div class="filters">
         <el-segmented v-model="tab" :options="[
           { label: '推荐列表', value: 'recommend' },
-          { label: '热门景区', value: 'hot' },
           { label: '个性化', value: 'personalized' },
         ]" />
-        <el-input v-model="query.type" placeholder="类型（可选，例如：校园/普通景区）" style="max-width: 320px" clearable />
-        <el-button type="primary" :loading="loading" @click="query.page = 1; load()">刷新</el-button>
+        <el-select
+          v-if="tab === 'personalized'"
+          v-model="query.tagKeyword"
+          placeholder="选择标签关键字（可选）"
+          style="max-width: 220px"
+          filterable
+          clearable
+        >
+          <el-option
+            v-for="tag in tagOptions"
+            :key="tag"
+            :label="tag"
+            :value="tag"
+          />
+        </el-select>
+        <el-button type="primary" :loading="loading" @click="query.page = 1; load()">
+          刷新
+        </el-button>
       </div>
     </div>
 
@@ -97,9 +129,11 @@ onMounted(load)
           <div class="card-title">{{ s.name }}</div>
           <div class="muted line">{{ s.location || '—' }}</div>
           <div class="muted line">{{ s.description || '暂无简介' }}</div>
+          <div class="spacer" />
           <div class="meta">
-            <el-tag effect="dark" type="info">{{ s.type || '未知类型' }}</el-tag>
-            <div class="muted">热度 {{ s.heat ?? 0 }} · 评分 {{ s.rating ?? 0 }}</div>
+            <div class="tags">
+              <el-tag v-for="tag in displayTags(s)" :key="`${s.id}-${tag}`" effect="plain" size="small">{{ tag }}</el-tag>
+            </div>
           </div>
         </el-card>
       </template>
@@ -107,10 +141,13 @@ onMounted(load)
       <template v-else>
         <el-card v-for="s in pList" :key="s.id" class="card" shadow="never" @click="$router.push(`/scenic/${s.id}`)">
           <div class="card-title">{{ s.name }}</div>
-          <div class="muted line">{{ s.reason || '为你推荐' }}</div>
+          <div class="muted line">{{ s.location || '—' }}</div>
+          <div class="muted line">{{ s.description || '暂无简介' }}</div>
+          <div class="spacer" />
           <div class="meta">
-            <el-tag effect="dark" type="success">匹配度 {{ (s.score ?? 0).toFixed(2) }}</el-tag>
-            <div class="muted">热度 {{ s.heat ?? 0 }} · 评分 {{ s.rating ?? 0 }}</div>
+            <div class="tags">
+              <el-tag v-for="tag in displayTags(s)" :key="`${s.id}-${tag}`" effect="plain" size="small">{{ tag }}</el-tag>
+            </div>
           </div>
         </el-card>
       </template>
@@ -131,32 +168,43 @@ onMounted(load)
 
 <style scoped>
 .hero {
-  padding: 18px;
+  padding: 20px;
 }
 .h1 {
-  font-size: 28px;
-  font-weight: 900;
-  margin-bottom: 6px;
+  font-size: 26px;
+  font-weight: 860;
+  margin-bottom: 8px;
+  letter-spacing: 0.2px;
 }
 .filters {
-  margin-top: 14px;
+  margin-top: 12px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
   align-items: center;
 }
 .grid {
-  margin-top: 14px;
+  margin-top: 12px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 .card {
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-ring);
+  background: rgba(255, 255, 255, 0.035);
 }
 .card-title {
-  font-weight: 800;
+  font-weight: 820;
   font-size: 16px;
   margin-bottom: 6px;
 }
@@ -164,15 +212,24 @@ onMounted(load)
   font-size: 12px;
   margin-bottom: 6px;
 }
+.spacer {
+  flex: 1;
+}
 .meta {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 0;
+}
+.tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 .pager {
-  margin-top: 14px;
+  margin-top: 12px;
   display: flex;
   justify-content: center;
 }

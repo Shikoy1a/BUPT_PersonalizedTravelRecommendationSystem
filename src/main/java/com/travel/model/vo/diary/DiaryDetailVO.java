@@ -14,6 +14,11 @@ public class DiaryDetailVO
 
     private List<Long> destinations;
 
+    /**
+     * 日记创建者昵称（用于列表展示）。
+     */
+    private String creatorNickname;
+
     public Diary getDiary()
     {
         return diary;
@@ -32,6 +37,16 @@ public class DiaryDetailVO
     public void setDestinations(List<Long> destinations)
     {
         this.destinations = destinations;
+    }
+
+    public String getCreatorNickname()
+    {
+        return creatorNickname;
+    }
+
+    public void setCreatorNickname(String creatorNickname)
+    {
+        this.creatorNickname = creatorNickname;
     }
 }
 
