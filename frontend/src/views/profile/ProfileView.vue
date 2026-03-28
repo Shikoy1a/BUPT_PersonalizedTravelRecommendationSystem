@@ -1,30 +1,53 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { apiRefresh, apiUpdateInterest } from '../../lib/api'
+import { apiGetInterest, apiRefresh, apiUpdateInterest } from '../../lib/api'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
 const loading = ref(false)
 const interestsText = ref((auth.user?.interests ?? []).join(','))
 
-const interests = computed(() =>
-  interestsText.value
+type InterestInput = { type: string; weight?: number }
+
+function parseInterests(): InterestInput[] {
+  const out: InterestInput[] = []
+  const rawItems = interestsText.value
     .split(',')
     .map((s) => s.trim())
-    .filter(Boolean),
-)
+    .filter(Boolean)
 
-// 说明：后端 UpdateInterestRequest 里是 InterestItemRequest 列表（type/value）。
-// 这里为了方便阅读与操作，前端把兴趣当作一个简单列表，统一按 type=tag 提交。
+  for (const raw of rawItems) {
+    const pair = raw.split(/[:：]/)
+    const type = (pair[0] || '').trim()
+    if (!type) continue
+
+    if (pair.length < 2 || pair[1] === undefined || pair[1].trim() === '') {
+      out.push({ type, weight: 1 })
+      continue
+    }
+
+    const weight = Number(pair[1].trim())
+    if (!Number.isFinite(weight) || weight <= 0 || weight > 5) {
+      throw new Error(`兴趣权重非法（${raw}），请使用 标签:权重 且权重在 (0,5]`) 
+    }
+    out.push({ type, weight })
+  }
+
+  return out
+}
+
 async function saveInterest() {
   loading.value = true
   try {
+    const payload = parseInterests()
     await apiUpdateInterest({
-      interests: interests.value.map((v) => ({ type: 'tag', value: v })),
+      interests: payload,
     })
     ElMessage.success('兴趣已更新')
-    if (auth.user) auth.user.interests = interests.value
+    if (auth.user) auth.user.interests = payload.map((i) => i.type)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '兴趣保存失败')
   } finally {
     loading.value = false
   }
@@ -36,6 +59,23 @@ async function refreshToken() {
   auth.setAuth(data.token, auth.user!)
   ElMessage.success('令牌已刷新')
 }
+
+async function loadInterests() {
+  if (!auth.isAuthed) return
+  try {
+    const items = await apiGetInterest()
+    interestsText.value = (items ?? [])
+      .map((item) => `${item.type}:${item.weight}`)
+      .join(', ')
+    if (auth.user) {
+      auth.user.interests = (items ?? []).map((item) => item.type)
+    }
+  } catch {
+    // 回显失败不阻塞页面渲染，保留本地已有展示
+  }
+}
+
+onMounted(loadInterests)
 </script>
 
 <template>
@@ -60,14 +100,14 @@ async function refreshToken() {
       </div>
 
       <div class="glass block" style="margin-top: 12px">
-        <div class="k">兴趣标签（用英文逗号分隔）</div>
-        <el-input v-model="interestsText" placeholder="例如：海边, 美食, 校园" />
+        <div class="k">兴趣权重（格式：标签:权重，逗号分隔）</div>
+        <el-input v-model="interestsText" placeholder="例如：美食:2, 历史:1.2, 徒步" />
         <div class="actions">
           <el-button type="primary" :loading="loading" @click="saveInterest">保存兴趣</el-button>
           <el-button @click="refreshToken">刷新 Token</el-button>
         </div>
         <div class="hint muted">
-          输入格式：用英文逗号分隔多个兴趣，例如 <code>海边, 美食, 校园</code>。
+          输入格式：<code>标签:权重</code>，多个兴趣用英文逗号分隔；不填权重默认 <code>1</code>，合法范围是 <code>(0,5]</code>。
         </div>
       </div>
     </el-card>

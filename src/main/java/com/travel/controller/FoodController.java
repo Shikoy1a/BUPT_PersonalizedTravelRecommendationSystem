@@ -3,6 +3,7 @@ package com.travel.controller;
 import com.travel.common.ApiResponse;
 import com.travel.model.dto.food.FoodRateRequest;
 import com.travel.model.entity.Food;
+import com.travel.model.vo.food.FoodDetailVO;
 import com.travel.model.vo.food.FoodRecommendVO;
 import com.travel.security.SecurityUtil;
 import com.travel.service.FoodService;
@@ -77,6 +78,15 @@ public class FoodController
     public ApiResponse<Food> detail(@PathVariable("id") @NotNull Long id)
     {
         return ApiResponse.success(foodService.detail(id), "获取成功");
+    }
+
+    /**
+     * 美食详情视图（补充餐厅与景区名称）。
+     */
+    @GetMapping("/detail-view/{id}")
+    public ApiResponse<FoodDetailVO> detailView(@PathVariable("id") @NotNull Long id)
+    {
+        return ApiResponse.success(foodService.detailView(id), "获取成功");
     }
 
     /**

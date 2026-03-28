@@ -1,6 +1,7 @@
 package com.travel.service;
 
 import com.travel.model.entity.Food;
+import com.travel.model.vo.food.FoodDetailVO;
 import com.travel.model.vo.food.FoodRecommendVO;
 
 import java.util.List;
@@ -44,6 +45,11 @@ public interface FoodService
      * 美食详情。
      */
     Food detail(Long id);
+
+    /**
+     * 美食详情视图（包含餐厅名与景区名）。
+     */
+    FoodDetailVO detailView(Long id);
 
     /**
      * 美食评分（1-5），可附带评论。

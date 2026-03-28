@@ -2,13 +2,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { apiFoodDetail, apiFoodRate, type Food } from '../../lib/api'
+import { apiFoodDetailView, apiFoodRate, type FoodDetailVO } from '../../lib/api'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
 const auth = useAuthStore()
 const loading = ref(false)
-const food = ref<Food | null>(null)
+const food = ref<FoodDetailVO | null>(null)
 
 const rate = reactive({
   rating: 5,
@@ -19,7 +19,7 @@ async function load() {
   loading.value = true
   try {
     const id = Number(route.params.id)
-    food.value = await apiFoodDetail(id)
+    food.value = await apiFoodDetailView(id)
   } finally {
     loading.value = false
   }
@@ -55,12 +55,12 @@ onMounted(load)
           <div class="v">{{ food?.heat ?? 0 }} / {{ food?.rating ?? 0 }}</div>
         </div>
         <div class="glass block">
-          <div class="k">areaId</div>
-          <div class="v">{{ food?.areaId ?? '—' }}</div>
+          <div class="k">所属景区</div>
+          <div class="v">{{ food?.areaName || '—' }}</div>
         </div>
         <div class="glass block">
-          <div class="k">restaurantId</div>
-          <div class="v">{{ food?.restaurantId ?? '—' }}</div>
+          <div class="k">餐厅信息</div>
+          <div class="v">{{ food?.restaurantName || '—' }}</div>
         </div>
       </div>
 

@@ -2,8 +2,10 @@ package com.travel.service.impl;
 
 import com.travel.algorithm.TopKSelector;
 import com.travel.model.entity.Food;
+import com.travel.model.entity.ScenicArea;
 import com.travel.model.entity.Restaurant;
 import com.travel.storage.InMemoryStore;
+import com.travel.model.vo.food.FoodDetailVO;
 import com.travel.model.vo.food.FoodRecommendVO;
 import com.travel.service.FoodService;
 import com.travel.util.GeoUtil;
@@ -214,6 +216,29 @@ public class FoodServiceImpl implements FoodService
             throw new IllegalArgumentException("美食不存在");
         }
         return food;
+    }
+
+    @Override
+    public FoodDetailVO detailView(Long id)
+    {
+        Food food = detail(id);
+
+        FoodDetailVO vo = new FoodDetailVO();
+        vo.setFood(food);
+
+        if (food.getRestaurantId() != null)
+        {
+            Restaurant restaurant = store.findRestaurantById(food.getRestaurantId());
+            vo.setRestaurantName(restaurant == null ? null : restaurant.getName());
+        }
+
+        if (food.getAreaId() != null)
+        {
+            ScenicArea scenicArea = store.findScenicAreaById(food.getAreaId());
+            vo.setAreaName(scenicArea == null ? null : scenicArea.getName());
+        }
+
+        return vo;
     }
 
     @Override

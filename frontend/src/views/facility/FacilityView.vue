@@ -5,6 +5,7 @@ import {
   apiFacilityDetail,
   apiFacilityNearby,
   apiFacilitySearch,
+  apiScenicDetail,
   apiScenicSearchByKeyword,
   type Facility,
   type FacilityNearbyVO,
@@ -88,7 +89,23 @@ async function ensureLocation() {
         nearbyForm.lng = pos.coords.longitude
         resolve(true)
       },
-      (err) => {
+      async (err) => {
+        // 定位失败时，若已选择景区则使用景区中心点作为兜底坐标，避免整条功能不可用。
+        if (nearbyForm.areaId != null) {
+          try {
+            const scenic = await apiScenicDetail(nearbyForm.areaId)
+            if (scenic.latitude != null && scenic.longitude != null) {
+              nearbyForm.lat = scenic.latitude
+              nearbyForm.lng = scenic.longitude
+              ElMessage.info('定位被拒绝，已使用景区中心点进行附近设施查询')
+              resolve(true)
+              return
+            }
+          } catch {
+            // ignore and fall through to warning below
+          }
+        }
+
         ElMessage.warning(`获取定位失败：${err.message || '未知原因'}`)
         resolve(false)
       },
@@ -179,7 +196,7 @@ onMounted(() => {
           </div>
 
           <div class="muted" style="margin-top: 8px; font-size: 12px; color: var(--text-2)">
-            查询附近时会自动使用浏览器定位计算距离（请允许定位权限）。
+            查询附近时会优先使用浏览器定位；若定位被拒绝且已选择景区，则自动降级为景区中心点。
           </div>
 
 

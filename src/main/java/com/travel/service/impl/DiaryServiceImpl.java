@@ -179,7 +179,6 @@ public class DiaryServiceImpl implements DiaryService
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public DiaryDetailVO detail(Long diaryId)
     {
         Diary diary = store.findDiaryById(diaryId);

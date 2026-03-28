@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -45,6 +46,8 @@ public class DevSeedDataLoader
 
     private final ResourceLoader resourceLoader;
 
+    private final PasswordEncoder passwordEncoder;
+
     private volatile boolean loaded;
 
     @Value("${app.dev-seed.enabled:false}")
@@ -53,11 +56,15 @@ public class DevSeedDataLoader
     @Value("${app.dev-seed.path:classpath:dev-seed}")
     private String devSeedPath;
 
-    public DevSeedDataLoader(InMemoryStore store, ObjectMapper objectMapper, ResourceLoader resourceLoader)
+    public DevSeedDataLoader(InMemoryStore store,
+                             ObjectMapper objectMapper,
+                             ResourceLoader resourceLoader,
+                             PasswordEncoder passwordEncoder)
     {
         this.store = store;
         this.objectMapper = objectMapper;
         this.resourceLoader = resourceLoader;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public synchronized void loadSeedIfEnabled(String reason)
@@ -77,6 +84,7 @@ public class DevSeedDataLoader
 
         for (User u : bundle.users)
         {
+            encodePasswordIfNeeded(u);
             store.insertUser(u);
         }
 
@@ -244,6 +252,25 @@ public class DevSeedDataLoader
             return devSeedPath + fileName;
         }
         return devSeedPath + "/" + fileName;
+    }
+
+    private void encodePasswordIfNeeded(User user)
+    {
+        String pwd = user.getPassword();
+        if (pwd == null || pwd.isBlank())
+        {
+            return;
+        }
+        if (isBcryptEncoded(pwd))
+        {
+            return;
+        }
+        user.setPassword(passwordEncoder.encode(pwd));
+    }
+
+    private boolean isBcryptEncoded(String value)
+    {
+        return value.startsWith("$2a$") || value.startsWith("$2b$") || value.startsWith("$2y$");
     }
 
     private record SeedBundle(

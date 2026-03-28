@@ -94,6 +94,14 @@
             <artifactId>commons-lang3</artifactId>
         </dependency>
 
+        <!-- 开发热更新（仅开发期使用） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
         <!-- 测试 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

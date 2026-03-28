@@ -4,6 +4,7 @@ import com.travel.common.ApiResponse;
 import com.travel.model.dto.auth.LoginRequest;
 import com.travel.model.dto.auth.RegisterRequest;
 import com.travel.model.dto.auth.UpdateInterestRequest;
+import com.travel.model.vo.auth.InterestItemVO;
 import com.travel.model.vo.UserVO;
 import com.travel.security.JwtUtil;
 import com.travel.security.SecurityUtil;
@@ -12,12 +13,14 @@ import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -97,6 +100,17 @@ public class AuthController
         }
         userService.updateInterests(userId, request);
         return ApiResponse.successMessage("兴趣更新成功");
+    }
+
+    @GetMapping("/interest")
+    public ApiResponse<List<InterestItemVO>> getInterest()
+    {
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (userId == null)
+        {
+            return ApiResponse.failure(401, "未登录或令牌无效");
+        }
+        return ApiResponse.success(userService.getInterests(userId), "获取成功");
     }
 
     private String resolveToken(String header)

@@ -71,7 +71,7 @@ async function remoteQArea(keyword: string) {
 
 async function loadRec() {
   if (rec.areaId == null) {
-    ElMessage.warning('请先选择景区（areaId），再获取美食推荐')
+    ElMessage.warning('请先选择景区，再获取美食推荐')
     return
   }
   loading.value = true
@@ -139,7 +139,7 @@ onMounted(() => {
               <el-option
                 v-for="o in recAreaOpts"
                 :key="o.id"
-                :label="`${o.name}（ID ${o.id}）`"
+                :label="o.name"
                 :value="o.id"
               />
             </el-select>
@@ -155,8 +155,8 @@ onMounted(() => {
           </div>
 
           <el-table :data="recList" v-loading="loading" style="width: 100%; margin-top: 16px" @row-click="(r: FoodRecommendVO)=>$router.push(`/food/${r.id}`)">
-            <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="name" label="名称" />
+            <el-table-column prop="restaurantName" label="餐厅" width="140" />
             <el-table-column prop="cuisine" label="菜系" width="120" />
             <el-table-column prop="price" label="价格" width="120" />
             <el-table-column prop="rating" label="评分" width="120" />
@@ -180,7 +180,7 @@ onMounted(() => {
               <el-option
                 v-for="o in qAreaOpts"
                 :key="o.id"
-                :label="`${o.name}（ID ${o.id}）`"
+                :label="o.name"
                 :value="o.id"
               />
             </el-select>
@@ -192,7 +192,6 @@ onMounted(() => {
           </div>
 
           <el-table :data="list" v-loading="loading" style="width: 100%; margin-top: 16px" @row-click="(r: Food)=>$router.push(`/food/${r.id}`)">
-            <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="name" label="名称" />
             <el-table-column prop="cuisine" label="菜系" width="120" />
             <el-table-column prop="price" label="价格" width="120" />

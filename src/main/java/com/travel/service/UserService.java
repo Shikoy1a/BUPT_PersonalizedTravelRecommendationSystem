@@ -3,7 +3,10 @@ package com.travel.service;
 import com.travel.model.dto.auth.LoginRequest;
 import com.travel.model.dto.auth.RegisterRequest;
 import com.travel.model.dto.auth.UpdateInterestRequest;
+import com.travel.model.vo.auth.InterestItemVO;
 import com.travel.model.vo.UserVO;
+
+import java.util.List;
 
 /**
  * 用户领域相关服务接口。
@@ -34,6 +37,11 @@ public interface UserService
      * @param request 更新请求
      */
     void updateInterests(Long userId, UpdateInterestRequest request);
+
+    /**
+     * 查询当前用户兴趣偏好（含权重）。
+     */
+    List<InterestItemVO> getInterests(Long userId);
 
     /**
      * 根据用户名查询用户视图。

@@ -1,6 +1,7 @@
 package com.travel.model.dto.auth;
 
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -11,6 +12,7 @@ public class UpdateInterestRequest
 {
 
     @NotEmpty(message = "兴趣列表不能为空")
+    @Valid
     private List<InterestItemRequest> interests;
 
     public List<InterestItemRequest> getInterests()

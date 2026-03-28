@@ -1,7 +1,7 @@
 # HANDOFF LOG
 
 > 用途：跨会话、跨 AI 的最小必要交接记录。
-> 规则：每次开发结束后追加，不要覆盖历史。
+> 规则：每次开发结束后追加，不要覆盖历史；已解决的同类问题应合并为结果导向记录；每条记录需标注负责人（git 用户）。
 
 ## 2026-03-28
 ### 会话目标
@@ -375,5 +375,74 @@
 ### 变更文件
 - skills/git-commit-mentor/SKILL.md
 - .github/copilot-instructions.md
+- docs/AI/HANDOFF.md
+
+## 2026-03-28（阶段合并摘要：推荐链路与体验优化）
+### 负责人
+- Max1122Chen（max1122chen@126.com）
+
+### 新增/完成功能
+- 兴趣权重闭环：统一前后端字段为 `type/weight`，支持“标签:权重”输入与服务端校验。
+- 种子账号登录：dev-seed 明文密码启动时自动 BCrypt 编码，开发账号可直接登录。
+- 联调稳定性修复：美食推荐响应兼容、设施定位拒绝降级、日记详情无库环境可用。
+- 体验优化：后端 devtools 热更新接入，美食页面去技术 ID 化并增强名称展示。
+
+### 验证结果
+- 关键接口与页面回归通过（登录、推荐、设施、日记详情、兴趣保存/回显）。
+- 前后端构建/编译通过（含 `mvn -DskipTests compile`、`npm.cmd run build`）。
+
+### 主要变更文件（合并）
+- frontend/src/lib/api.ts
+- frontend/src/views/profile/ProfileView.vue
+- frontend/src/views/facility/FacilityView.vue
+- frontend/src/views/food/FoodView.vue
+- frontend/src/views/food/FoodDetailView.vue
+- src/main/java/com/travel/storage/DevSeedDataLoader.java
+- src/main/java/com/travel/service/impl/UserServiceImpl.java
+- src/main/java/com/travel/service/impl/DiaryServiceImpl.java
+- src/main/java/com/travel/model/dto/auth/InterestItemRequest.java
+- src/main/java/com/travel/model/dto/auth/UpdateInterestRequest.java
+- pom.xml
+- docs/AI/HANDOFF.md
+
+## 2026-03-28（功能合并记录：美食详情可读化 + 兴趣回显）
+### 负责人
+- Max1122Chen（max1122chen@126.com）
+
+### 新增/完成功能
+- 美食详情支持展示真实“餐厅名称/所属景区名称”。
+- 用户中心支持兴趣与权重回显（登录后自动读取）。
+- 前端兼容 `detail-view` 嵌套响应结构，统一为页面可直接消费的数据模型。
+
+### 验证结果
+- `GET /api/auth/interest` 返回 `200`。
+- `GET /api/food/detail-view/901` 返回 `200`。
+- 前端构建通过：`npm.cmd run build`。
+
+### 变更文件
+- src/main/java/com/travel/controller/AuthController.java
+- src/main/java/com/travel/controller/FoodController.java
+- src/main/java/com/travel/service/FoodService.java
+- src/main/java/com/travel/service/UserService.java
+- src/main/java/com/travel/service/impl/FoodServiceImpl.java
+- src/main/java/com/travel/service/impl/UserServiceImpl.java
+- src/main/java/com/travel/model/vo/food/FoodDetailVO.java
+- src/main/java/com/travel/model/vo/auth/InterestItemVO.java
+- frontend/src/lib/api.ts
+- frontend/src/views/food/FoodDetailView.vue
+- frontend/src/views/profile/ProfileView.vue
+- docs/AI/HANDOFF.md
+
+## 2026-03-28（流程需求新增：HANDOFF 精简与负责人）
+### 负责人
+- Max1122Chen（max1122chen@126.com）
+
+### 新增规则
+- HANDOFF 中同一功能/bug 若已解决，后续记录自动合并为“结果导向”条目。
+- 记录默认省略中间排障曲折，仅保留实现结果、验证结论、变更文件。
+- 每条 HANDOFF 新增 `负责人` 字段，按当前仓库 git 用户填写。
+
+### 变更文件
+- docs/AI/WORKFLOW.md
 - docs/AI/HANDOFF.md
 

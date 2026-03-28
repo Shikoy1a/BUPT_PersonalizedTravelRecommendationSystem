@@ -7,6 +7,7 @@ import com.travel.model.dto.auth.RegisterRequest;
 import com.travel.model.dto.auth.UpdateInterestRequest;
 import com.travel.model.entity.User;
 import com.travel.model.entity.UserInterest;
+import com.travel.model.vo.auth.InterestItemVO;
 import com.travel.model.vo.UserVO;
 import com.travel.security.JwtUtil;
 import com.travel.service.UserService;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户服务实现。
@@ -89,18 +91,39 @@ public class UserServiceImpl implements UserService
         List<UserInterest> interests = new ArrayList<>();
         for (InterestItemRequest item : items)
         {
-            if (StringUtils.isBlank(item.getType()))
+            String type = item.getType();
+            if (StringUtils.isBlank(type))
             {
                 continue;
             }
             UserInterest interest = new UserInterest();
             interest.setUserId(userId);
-            interest.setInterestType(item.getType());
+            interest.setInterestType(type.trim());
             interest.setWeight(item.getWeight() == null ? 1.0 : item.getWeight());
             interest.setCreateTime(now);
             interests.add(interest);
         }
         store.replaceUserInterests(userId, interests);
+    }
+
+    @Override
+    public List<InterestItemVO> getInterests(Long userId)
+    {
+        Map<String, Double> interests = store.getUserInterests(userId);
+        if (interests == null || interests.isEmpty())
+        {
+            return List.of();
+        }
+
+        List<InterestItemVO> out = new ArrayList<>(interests.size());
+        for (Map.Entry<String, Double> entry : interests.entrySet())
+        {
+            InterestItemVO item = new InterestItemVO();
+            item.setType(entry.getKey());
+            item.setWeight(entry.getValue());
+            out.add(item);
+        }
+        return out;
     }
 
     @Override

@@ -50,7 +50,22 @@ export type Food = {
   areaId?: number
 }
 
-export type FoodRecommendVO = Food & { distance?: number; score?: number }
+export type FoodRecommendVO = Food & {
+  distance?: number
+  score?: number
+  restaurantName?: string
+  restaurantId?: number
+}
+
+export type FoodDetailVO = Food & {
+  restaurantName?: string
+  areaName?: string
+}
+
+export type InterestItemVO = {
+  type: string
+  weight: number
+}
 
 export type Diary = {
   id: number
@@ -98,8 +113,13 @@ export async function apiRefresh(token: string) {
   return res.data
 }
 
-export async function apiUpdateInterest(payload: { interests: { type: string; value: string }[] }) {
+export async function apiUpdateInterest(payload: { interests: { type: string; weight?: number }[] }) {
   const res = (await http.put('/api/auth/interest', payload)) as ApiResponse<void>
+  return res.data
+}
+
+export async function apiGetInterest() {
+  const res = (await http.get('/api/auth/interest')) as ApiResponse<InterestItemVO[]>
   return res.data
 }
 
@@ -209,8 +229,22 @@ export async function apiFoodRecommendation(params: {
   page?: number
   size?: number
 }) {
-  const res = (await http.get('/api/food/recommendation', { params })) as ApiResponse<FoodRecommendVO[]>
-  return res.data
+  const res = (await http.get('/api/food/recommendation', { params })) as ApiResponse<any[]>
+  const list = Array.isArray(res.data) ? res.data : []
+  return list.map((item) => {
+    if (item && typeof item === 'object' && item.food) {
+      const food = item.food as Food
+      const restaurant = item.restaurant as { id?: number; name?: string } | undefined
+      return {
+        ...food,
+        distance: item.distance,
+        score: item.score,
+        restaurantName: restaurant?.name,
+        restaurantId: restaurant?.id,
+      } as FoodRecommendVO
+    }
+    return item as FoodRecommendVO
+  })
 }
 
 export async function apiFoodSearch(params: {
@@ -227,6 +261,19 @@ export async function apiFoodSearch(params: {
 export async function apiFoodDetail(id: number) {
   const res = (await http.get(`/api/food/detail/${id}`)) as ApiResponse<Food>
   return res.data
+}
+
+export async function apiFoodDetailView(id: number) {
+  const res = (await http.get(`/api/food/detail-view/${id}`)) as ApiResponse<unknown>
+  const raw = res.data as FoodDetailVO & { food?: Food }
+  if (raw && typeof raw === 'object' && raw.food) {
+    return {
+      ...raw.food,
+      restaurantName: raw.restaurantName,
+      areaName: raw.areaName,
+    } as FoodDetailVO
+  }
+  return raw as FoodDetailVO
 }
 
 export async function apiFoodRate(payload: { foodId: number; rating: number; comment?: string }) {
