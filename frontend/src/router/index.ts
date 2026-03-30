@@ -23,6 +23,7 @@ const router = createRouter({
       component: () => import('../layouts/AppLayout.vue'),
       children: [
         { path: 'home', component: () => import('../views/HomePageView.vue') },
+        { path: 'about', component: () => import('../views/AboutView.vue') },
         { path: 'recommend', component: () => import('../views/HomeView.vue') },
         { path: 'scenic/:id', component: () => import('../views/scenic/ScenicDetailView.vue') },
         { path: 'route', component: () => import('../views/route/RoutePlannerView.vue') },

@@ -3,6 +3,130 @@
 > 用途：跨会话、跨 AI 的最小必要交接记录。
 > 规则：每次开发结束后追加，不要覆盖历史；已解决的同类问题应合并为结果导向记录；每条记录需标注负责人（git 用户）。
 
+## 2026-03-29（主内容收窄 / 顶栏四角圆角 / Home 双滚动条）
+### 已完成
+- 非 Home 路由：`.es-main-inner` 设为 `max-width: min(1040px, 86vw)` 居中，`.es-main` 使用 `clamp` 左右留白，两侧露出背景；Home 仍走 `es-main--flush`，全宽英雄区不变。
+- `.es-nav` 由仅下圆角改为整体 `border-radius: 20px`，`.nav-items` 改为四角 `border-radius: 14px`；顶栏增加水平内边距避免贴边。
+- 双滚动条：`html`/`body`/`#app` 去掉 `height:100%` 链，纵向仅 `html` 滚动；`.es-app` 使用 `flex` 列布局且 `overflow-y: visible`，避免壳层再生成滚动条；`.es-home` 用 `100dvh/100vh - 128px` 控制最小高度。
+
+### 验证
+- `frontend` 下 `npm run build` 通过。
+
+### 负责人
+- Ryemon
+
+## 2026-03-29（全局毛玻璃：分区透明度）
+### 已完成
+- `premium.css`：定义 `--glass-page` / `--glass-card` / `--glass-input` / `--glass-subtle` 等分层变量，统一 `backdrop-filter` + `saturate`；`el-card`、输入框、标签、次要按钮、抽屉、对话框、分页、下拉浮层改为毛玻璃而非实色白底。
+- `explorescape.css`：顶栏 `.es-nav`、主内容 `.es-panel-page` 使用不同白透明度与模糊强度。
+- `global.css`：`.glass` 与主题变量对齐。
+- `HomeView` 景区卡片、`DiaryListView` 顶栏/搜索条/日记卡片/标签激活态、`Login`/`Register` 侧栏 `hero` 同步为毛玻璃层次。
+
+### 验证
+- `frontend` 下 `npm run build` 通过。
+
+### 负责人
+- Ryemon
+
+## 2026-03-29（ExploreScape 五张背景图：public 路径与引用）
+### 已完成
+- 约定资源目录：`frontend/public/explorescape/`，无空格文件名 `bac-4.png`、`bac-3.png`、`bac-2.png`、`bac-2-2.png`、`bac-1.png`；`README.txt` 说明与原版 `bac 4.png` 等对应关系。
+- `explorescape.css` 中 `.es-app` 以 `bac-4.png` 为全页底层背景并保留位移动画；`HomePageView` 四层前景与参考站一致并增加中景 `bac-2`。
+- 仓库内已放入 1×1 透明 PNG 占位以便 `npm run build` 通过；本地开发请用真实图层 **覆盖同名文件**。
+- 首页 `img` 使用 `import.meta.env.BASE_URL + 'explorescape/...'` 拼接，避免打包器将 `/explorescape/...` 当模块解析失败。
+
+### 验证
+- `frontend` 下 `npm run build` 通过。
+
+### 负责人
+- Ryemon
+
+## 2026-03-29（前端 UI 对齐 ExploreScape）
+### 会话目标
+- 以 `ExploreScape-Travel-website-main` 的静态 HTML/CSS 为视觉参考改造 `frontend`；保留既有路由、鉴权与后端 API 联调能力。
+
+### 已完成
+- 顶栏玻璃导航（文案与参考一致）：Home / About / Reviews / Gallery / Contacts，分别映射 `/home`、`/about`、`/diary`、`/recommend`（含景区详情）、`/profile` 或未登录 `/login`；次级导航保留 推荐 / 路线 / 设施 / 美食 / 管理（管理员）。
+- `/home`：英雄区标题与 Kerala 段落、CTA「Explore More」跳转 `/recommend`、装饰层与左右箭头（Font Awesome）；无原站图片时用渐变占位。
+- 全局：`Inter` + Font Awesome CDN、`premium.css` 主色 `#16423c`、新增 `explorescape.css`；登录/注册/404 使用 `es-auth-page` 与主壳一致的深色渐变。
+- `public/explorescape/README.txt` 说明可选拷贝原站背景图文件名。
+
+### 验证
+- `frontend` 目录执行 `npm run build` 通过。
+
+### 变更文件
+- `frontend/index.html`、`frontend/src/main.ts`、`frontend/src/router/index.ts`
+- `frontend/src/styles/global.css`、`premium.css`、`explorescape.css`
+- `frontend/src/layouts/AppLayout.vue`、`frontend/src/views/HomePageView.vue`、`AboutView.vue`、`NotFoundView.vue`、`auth/LoginView.vue`、`auth/RegisterView.vue`
+- `frontend/public/explorescape/README.txt`
+
+### 负责人
+- Ryemon
+
+## 2026-03-29（日记列表顶部标签：随用户兴趣）
+### 已完成
+- `DiaryListView`：固定「历史/古镇/…」改为 `apiGetInterest()` 拉取兴趣，按权重降序生成 chips；「推荐」固定为首项。
+- 筛选用规范键与目的地景区标签 `normalizeInterestKey` 对齐；未登录仅「推荐」；兴趣变更后 `watch` 刷新。
+- 排除 `isExcludedTagPickerKey`（如普通景区）。
+
+### 变更文件
+- `frontend/src/views/diary/DiaryListView.vue`
+
+## 2026-03-29（个人中心快速添加 + 排除「普通景区」）
+### 已完成
+- `ProfileView`：「快速添加常用标签」改为 `apiTagsList()`（与首页同源），启动时 `loadTagCatalog`。
+- `interestTags.isExcludedTagPickerKey`：下拉统一排除展示名为「普通景区」的项；`HomeView` 的合并标签同步过滤。
+- `TagServiceImpl`：`GET /api/tags` 侧过滤 `name` 为「普通景区」的标签行。
+
+### 变更文件
+- `frontend/src/lib/interestTags.ts`、`frontend/src/views/HomeView.vue`、`frontend/src/views/profile/ProfileView.vue`
+- `src/main/java/com/travel/service/impl/TagServiceImpl.java`
+
+## 2026-03-29（个性化标签筛选与展示一致）
+### 原因
+- 筛选仅用景区关联标签名的子串匹配，未做与兴趣侧一致的 **canonicalize**（中英别名），导致「下拉键」与库里标签名不一致时筛空。
+- 首页卡片在 `tags` 为空时用 **景区 type** 展示标签，但筛选未考虑 **type**，造成「看得见、筛不出」。
+
+### 修复
+- `RecommendationServiceImpl#containsTagKeyword`：规范键相等 + 原子串匹配；无关联标签时用 `ScenicArea.type` 回退。
+- 单测：`RecommendationServiceImplTest` 增补中文/英文关键字与仅 type 场景。
+
+### 变更文件
+- `src/main/java/com/travel/service/impl/RecommendationServiceImpl.java`
+- `src/test/java/com/travel/service/impl/RecommendationServiceImplTest.java`
+
+## 2026-03-29（首页推荐标签下拉：tags 表）
+### 已完成
+- 新增 `GET /api/tags`：从 `InMemoryStore` 返回 `tags` 表预加载数据（`TagVO`：id/name/type），匿名可访问。
+- `HomeView` 智能推荐标签下拉改为请求 `apiTagsList()`，与库表一致；失败时回退 `COMMON_INTEREST_KEYS`。
+- `SecurityConfig`：`GET /api/tags` permitAll。
+
+### 验证
+- `mvn -DskipTests compile`、`frontend npm run build` 通过。
+
+### 变更文件
+- `src/main/java/com/travel/storage/InMemoryStore.java`
+- `src/main/java/com/travel/model/vo/TagVO.java`、`TagService.java`、`TagServiceImpl.java`、`TagController.java`
+- `src/main/java/com/travel/security/SecurityConfig.java`
+- `frontend/src/lib/api.ts`、`frontend/src/views/HomeView.vue`
+
+## 2026-03-29（用户兴趣持久化）
+### 已完成
+- `UserServiceImpl` 在 `replaceUserInterests` 之后调用 `UserInterestMapper`：按 `user_id` 删除再插入，使兴趣与权重写入 `user_interests` 表，重启后 `InMemoryDataLoader` 预加载可恢复。
+- 覆盖 `updateInterests` 与 `recordEngagement` 两条路径；落库失败时 `warn` 且不抛错，避免无库连接场景下接口 500（不复用方法级 `@Transactional`）。
+
+### 验证
+- `mvn test` 通过。
+
+### 变更文件
+- `src/main/java/com/travel/service/impl/UserServiceImpl.java`
+- `src/test/java/com/travel/service/impl/UserServiceImplTest.java`
+
+## 2026-03-28（仅 dev-seed、不预载 DB）
+### 说明（问答，无代码变更）
+- 仅用 `dev-seed` JSON、不向内存灌库表数据：设 `app.storage.preload.enabled=false` 且 `app.dev-seed.enabled=true`（见 `InMemoryDataLoader#load`）。
+- 若仍连不上 MySQL，Spring/Druid 启动是否失败取决于其它是否访问数据源；`application-dev` 中 `ignore-db-connection-failure` 仅作用于预加载 catch 分支。
+
 ## 2026-03-28
 ### 会话目标
 - 建立统一 AI 协作与记忆机制，降低换会话/换模型的上下文丢失。

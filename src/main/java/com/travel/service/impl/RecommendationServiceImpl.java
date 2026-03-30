@@ -226,21 +226,59 @@ public class RecommendationServiceImpl implements RecommendationService
         return new PageData<>(scored.subList(from, to), (long) scored.size());
     }
 
+    /**
+     * 标签关键字筛选：与首页展示逻辑对齐。
+     * <ul>
+     *     <li>对标签名与关键字做 {@link #canonicalizeTag} 后比较，避免「下拉为英文键、库里为中文名」等情况无法命中；</li>
+     *     <li>保留小写子串匹配，兼容如 {@code sci} 命中 {@code science}；</li>
+     *     <li>当景区无关联标签时，用 {@link ScenicArea#getType()} 回退（与前端在 tags 为空时用 type 展示一致）。</li>
+     * </ul>
+     */
     private boolean containsTagKeyword(Long scenicAreaId, String normalizedTagKeyword)
     {
-        Map<String, Double> tags = store.getScenicAreaTagWeights(scenicAreaId);
-        if (tags == null || tags.isEmpty())
+        if (StringUtils.isBlank(normalizedTagKeyword))
+        {
+            return true;
+        }
+        String canonicalKeyword = canonicalizeTag(normalizedTagKeyword);
+        if (canonicalKeyword == null)
         {
             return false;
         }
-        for (String tagName : tags.keySet())
+        String nk = normalizedTagKeyword.trim().toLowerCase(Locale.ROOT);
+
+        Map<String, Double> tags = store.getScenicAreaTagWeights(scenicAreaId);
+        if (tags != null && !tags.isEmpty())
         {
-            if (tagName == null)
+            for (String tagName : tags.keySet())
             {
-                continue;
+                if (tagName == null)
+                {
+                    continue;
+                }
+                String ct = canonicalizeTag(tagName);
+                if (ct != null && ct.equals(canonicalKeyword))
+                {
+                    return true;
+                }
+                String normalizedTagName = tagName.trim().toLowerCase(Locale.ROOT);
+                if (normalizedTagName.contains(nk) || nk.contains(normalizedTagName))
+                {
+                    return true;
+                }
             }
-            String normalizedTagName = tagName.trim().toLowerCase();
-            if (normalizedTagName.contains(normalizedTagKeyword))
+        }
+
+        ScenicArea scenic = store.findScenicAreaById(scenicAreaId);
+        if (scenic != null && StringUtils.isNotBlank(scenic.getType()))
+        {
+            String typeCanon = canonicalizeTag(scenic.getType());
+            if (typeCanon != null && typeCanon.equals(canonicalKeyword))
+            {
+                return true;
+            }
+            String t = scenic.getType().trim().toLowerCase(Locale.ROOT);
+            if (t.contains(nk) || nk.contains(t))
             {
                 return true;
             }

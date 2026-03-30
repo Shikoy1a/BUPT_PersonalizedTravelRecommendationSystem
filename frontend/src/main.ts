@@ -9,6 +9,7 @@ import router from './router'
 
 import './styles/global.css'
 import './styles/premium.css'
+import './styles/explorescape.css'
 
 const app = createApp(App)
 

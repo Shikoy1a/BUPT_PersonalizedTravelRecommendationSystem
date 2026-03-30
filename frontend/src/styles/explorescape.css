@@ -1,0 +1,423 @@
+/*
+ * Visual shell aligned with ExploreScape-Travel-website (HTML/CSS reference).
+ * Optional images: /explorescape/bac-4.png etc. — see public/explorescape/README.txt
+ */
+
+.es-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  color: rgba(255, 255, 255, 0.92);
+  background-color: #0a1513;
+  /* 与 ExploreScape styles.css 一致：底层 bac 4，上叠渐变；首图缺失时仍显示纯色+渐变 */
+  background-image:
+    linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.88) 100%),
+    linear-gradient(135deg, rgba(31, 74, 66, 0.45) 0%, rgba(15, 38, 34, 0.55) 42%, rgba(22, 66, 60, 0.5) 100%),
+    url('/explorescape/bac-4.png');
+  background-size: cover, cover, cover;
+  background-position: top, top, top;
+  background-repeat: no-repeat;
+  overflow-x: hidden;
+  /* 纵向滚动交给 html/body，避免出现第二条滚动条 */
+  overflow-y: visible;
+  animation: es-bg-shift 1.6s ease-out forwards;
+}
+
+@keyframes es-bg-shift {
+  from {
+    background-position: top, top, top;
+  }
+  to {
+    background-position: 50% 14%, 50% 14%, 50% 14%;
+  }
+}
+
+.es-app::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  pointer-events: none;
+  background: linear-gradient(transparent 50%, rgb(0, 0, 0));
+  z-index: 0;
+}
+
+.es-app > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* —— Top nav (reference: ExploreScape header nav) —— */
+.es-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 12px 0;
+  box-sizing: border-box;
+}
+
+.es-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 5%;
+  background-color: rgba(255, 255, 255, 0.26);
+  min-height: 30px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px) saturate(1.18);
+  -webkit-backdrop-filter: blur(12px) saturate(1.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  flex-wrap: wrap;
+  justify-content: center;
+  animation: es-top-in 1.2s ease-out forwards;
+}
+
+@keyframes es-top-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.es-nav a.nav-items {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  color: rgb(53, 53, 53);
+  width: 110px;
+  text-align: center;
+  padding: 15px 0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  border: none;
+  background: transparent;
+}
+
+.es-nav a.nav-items.active {
+  background-color: #16423c;
+  color: white;
+}
+
+.es-nav a.nav-items:hover {
+  background-color: #16423c;
+  color: white;
+}
+
+.es-nav:hover > a.nav-items:not(:hover):not(.active) {
+  background-color: transparent;
+  color: rgb(53, 53, 53);
+}
+
+.es-nav__user {
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.es-nav__user .el-button {
+  --el-button-bg-color: transparent;
+  --el-button-border-color: rgba(255, 255, 255, 0.35);
+  --el-button-text-color: rgb(53, 53, 53);
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.es-nav__user .el-button--primary {
+  --el-button-bg-color: #16423c;
+  --el-button-border-color: #16423c;
+  --el-button-text-color: #fff;
+}
+
+/* Secondary feature strip — preserves app routes not in ExploreScape top bar */
+.es-subnav {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 10px 16px 14px;
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+
+.es-subnav__link {
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.es-subnav__link:hover,
+.es-subnav__link.router-link-active {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.es-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px clamp(12px, 4vw, 40px) 28px;
+  box-sizing: border-box;
+}
+
+.es-main--flush {
+  padding: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.es-main-inner {
+  width: 100%;
+  /* 非 Home：主内容约在中部 ~86vw，两侧露出背景（Home 不使用此层） */
+  max-width: min(1040px, 86vw);
+  margin: 0 auto;
+}
+
+.es-main-inner.es-panel-page {
+  box-sizing: border-box;
+}
+
+/* Home hero（全宽，不参与 es-main-inner 收窄） */
+.es-home {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* 避免与顶栏/次导航叠加后超出视口产生双滚动 */
+  min-height: calc(100dvh - 128px);
+  min-height: calc(100vh - 128px);
+}
+
+.es-home .es-content {
+  position: relative;
+  flex: 1;
+  min-height: 520px;
+}
+
+.es-parallax-img {
+  position: absolute;
+  bottom: -12%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(96vw, 1400px);
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.es-title {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+}
+
+.es-title h3 {
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: 15px;
+  color: white;
+  text-align: center;
+  margin: 0;
+  animation: es-bottom-in-text 1s ease-out forwards;
+}
+
+.es-title h1 {
+  font-size: clamp(3.5rem, 14vw, 15rem);
+  font-weight: 800;
+  letter-spacing: clamp(8px, 3vw, 50px);
+  text-transform: uppercase;
+  color: white;
+  text-align: center;
+  margin: -12px 0 0;
+  line-height: 1;
+  animation: es-bottom-in-text 1.2s ease-out forwards;
+}
+
+@keyframes es-bottom-in-text {
+  from {
+    transform: translateY(500px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.es-info-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  position: absolute;
+  bottom: 18%;
+  z-index: 10;
+}
+
+.es-info-wrap p {
+  font-size: 14px;
+  font-weight: 300;
+  letter-spacing: 1px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.7);
+  width: min(92%, 720px);
+  text-align: center;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+  margin: 0;
+  animation: es-bottom-in-text 1.2s ease-out forwards;
+  animation-delay: 0.2s;
+  opacity: 0;
+  animation-fill-mode: forwards;
+}
+
+.es-cta {
+  position: absolute;
+  bottom: 8%;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  z-index: 10;
+}
+
+.es-cta button {
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50px;
+  height: 50px;
+  width: min(300px, 88vw);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  cursor: pointer;
+  font-family: inherit;
+  animation: es-bottom-in-text 1.2s ease-out forwards;
+  animation-delay: 0.3s;
+  opacity: 0;
+  animation-fill-mode: forwards;
+}
+
+.es-cta button:hover {
+  background-color: rgba(255, 255, 255, 0.8);
+  color: rgb(53, 53, 53);
+}
+
+.es-slider {
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0.4;
+  animation: es-zoom-out 1.2s ease-out forwards;
+}
+
+.es-slider i {
+  padding: 0 5%;
+  font-size: 36px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+@keyframes es-zoom-out {
+  from {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes es-bottom-in-layer {
+  from {
+    transform: translate(-50%, 200px);
+  }
+  to {
+    transform: translate(-50%, 0);
+  }
+}
+
+/* 分层入场：与参考站 back-3 / back-2 / back-1 时长一致，并加入 bac-2 中景层 */
+.es-parallax-img.back-3 {
+  animation: es-bottom-in-layer 1.5s ease-out forwards;
+  z-index: 0;
+}
+
+.es-parallax-img.back-2mid {
+  animation: es-bottom-in-layer 1.4s ease-out forwards;
+  z-index: 1;
+}
+
+.es-parallax-img.back-2 {
+  animation: es-bottom-in-layer 1.3s ease-out forwards;
+  z-index: 2;
+}
+
+.es-parallax-img.back-1 {
+  animation: es-bottom-in-layer 1s ease-out forwards;
+  z-index: 3;
+}
+
+/* Inner pages: 主内容区 — 较高透明 + 强模糊，与导航/卡片区分 */
+.es-panel-page {
+  background: rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 20px;
+  padding: 18px;
+  color: #1a1a18;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(22px) saturate(1.22);
+  -webkit-backdrop-filter: blur(22px) saturate(1.22);
+}
+
+/* Standalone auth pages (outside AppLayout) */
+.es-auth-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background-image:
+    linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.88) 100%),
+    linear-gradient(135deg, #1f4a42 0%, #0f2622 42%, #16423c 100%);
+  background-size: cover;
+  background-position: top;
+  padding: 18px;
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 720px) {
+  .es-nav a.nav-items {
+    width: auto;
+    min-width: 88px;
+    padding: 12px 10px;
+    font-size: 15px;
+  }
+}

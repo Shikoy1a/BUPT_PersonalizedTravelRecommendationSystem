@@ -1,5 +1,7 @@
 package com.travel.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.travel.mapper.UserInterestMapper;
 import com.travel.storage.InMemoryStore;
 import com.travel.model.dto.auth.InterestItemRequest;
 import com.travel.model.dto.auth.LoginRequest;
@@ -15,6 +17,8 @@ import com.travel.model.vo.UserVO;
 import com.travel.security.JwtUtil;
 import com.travel.service.UserService;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -32,6 +36,8 @@ import java.util.Map;
 public class UserServiceImpl implements UserService
 {
 
+    private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
+
     private static final Map<String, String> INTEREST_ALIASES = buildInterestAliases();
 
     private final InMemoryStore store;
@@ -40,13 +46,17 @@ public class UserServiceImpl implements UserService
 
     private final JwtUtil jwtUtil;
 
+    private final UserInterestMapper userInterestMapper;
+
     public UserServiceImpl(InMemoryStore store,
                            PasswordEncoder passwordEncoder,
-                           JwtUtil jwtUtil)
+                           JwtUtil jwtUtil,
+                           UserInterestMapper userInterestMapper)
     {
         this.store = store;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.userInterestMapper = userInterestMapper;
     }
 
     @Override
@@ -115,6 +125,7 @@ public class UserServiceImpl implements UserService
             interests.add(interest);
         }
         store.replaceUserInterests(userId, interests);
+        persistUserInterestsToDatabase(userId, interests);
     }
 
     @Override
@@ -214,6 +225,7 @@ public class UserServiceImpl implements UserService
             interests.add(interest);
         }
         store.replaceUserInterests(userId, interests);
+        persistUserInterestsToDatabase(userId, interests);
     }
 
     @Override
@@ -225,6 +237,32 @@ public class UserServiceImpl implements UserService
             return null;
         }
         return toUserVO(user);
+    }
+
+    /**
+     * 将当前用户的兴趣偏好同步到数据库，保证重启后预加载与内存一致。
+     * 失败时仅打日志：内存已更新，且避免因无库连接场景下事务取连接导致接口 500（见 HANDOFF 2026-03-28 点赞与兴趣保存）。
+     */
+    private void persistUserInterestsToDatabase(Long userId, List<UserInterest> interests)
+    {
+        try
+        {
+            userInterestMapper.delete(new LambdaQueryWrapper<UserInterest>().eq(UserInterest::getUserId, userId));
+            for (UserInterest ui : interests)
+            {
+                UserInterest row = new UserInterest();
+                row.setUserId(userId);
+                row.setInterestType(ui.getInterestType());
+                row.setWeight(ui.getWeight());
+                row.setCreateTime(ui.getCreateTime());
+                userInterestMapper.insert(row);
+            }
+        }
+        catch (Exception ex)
+        {
+            log.warn("Failed to persist user interests for userId={} (in-memory state is updated): {}", userId,
+                ex.getMessage());
+        }
     }
 
     private UserVO toUserVO(User user)

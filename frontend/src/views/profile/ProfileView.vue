@@ -2,8 +2,14 @@
 import { nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
-import { apiGetInterest, apiRefresh, apiUpdateInterest } from '../../lib/api'
-import { COMMON_INTEREST_KEYS, interestLabelZh, normalizeInterestKey, roundTwo } from '../../lib/interestTags'
+import { apiGetInterest, apiRefresh, apiTagsList, apiUpdateInterest } from '../../lib/api'
+import {
+  COMMON_INTEREST_KEYS,
+  interestLabelZh,
+  isExcludedTagPickerKey,
+  normalizeInterestKey,
+  roundTwo,
+} from '../../lib/interestTags'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
@@ -11,7 +17,8 @@ const loading = ref(false)
 const interestItems = ref<InterestInput[]>([])
 const chartEl = ref<HTMLDivElement | null>(null)
 let interestChart: echarts.ECharts | null = null
-const commonTags = COMMON_INTEREST_KEYS
+/** 来自 GET /api/tags，与首页一致；失败时用 COMMON_INTEREST_KEYS 并排除「普通景区」等 */
+const catalogTagKeys = ref<string[]>([...COMMON_INTEREST_KEYS].filter((k) => !isExcludedTagPickerKey(k)))
 const addTag = ref('')
 
 type InterestInput = { type: string; weight?: number }
@@ -166,7 +173,24 @@ onBeforeUnmount(() => {
   }
 })
 
-onMounted(loadInterests)
+async function loadTagCatalog() {
+  const fallback = [...COMMON_INTEREST_KEYS].filter((k) => !isExcludedTagPickerKey(k))
+  try {
+    const rows = await apiTagsList()
+    const keys = rows
+      .map((t) => normalizeInterestKey(t.name || ''))
+      .filter((k): k is string => Boolean(k))
+      .filter((k) => !isExcludedTagPickerKey(k))
+    catalogTagKeys.value = keys.length > 0 ? keys : fallback
+  } catch {
+    catalogTagKeys.value = fallback
+  }
+}
+
+onMounted(() => {
+  loadInterests()
+  void loadTagCatalog()
+})
 </script>
 
 <template>
@@ -204,7 +228,7 @@ onMounted(loadInterests)
 
         <div class="addActions">
           <el-select v-model="addTag" filterable clearable placeholder="快速添加常用标签" style="max-width: 220px">
-            <el-option v-for="tag in commonTags" :key="tag" :label="interestLabelZh(tag)" :value="tag" />
+            <el-option v-for="tag in catalogTagKeys" :key="tag" :label="interestLabelZh(tag)" :value="tag" />
           </el-select>
           <el-button @click="addCustomTag">添加标签</el-button>
           <el-button @click="addInterest()">新增空白兴趣</el-button>

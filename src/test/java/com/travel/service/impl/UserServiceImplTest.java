@@ -5,6 +5,7 @@ import com.travel.model.dto.auth.UpdateInterestRequest;
 import com.travel.model.entity.Food;
 import com.travel.model.entity.ScenicArea;
 import com.travel.model.entity.UserBehavior;
+import com.travel.mapper.UserInterestMapper;
 import com.travel.model.entity.UserInterest;
 import com.travel.security.JwtUtil;
 import com.travel.storage.InMemoryStore;
@@ -37,10 +38,13 @@ class UserServiceImplTest
     @Mock
     private JwtUtil jwtUtil;
 
+    @Mock
+    private UserInterestMapper userInterestMapper;
+
     @Test
     void updateInterestsShouldUseDefaultWeightWhenWeightIsNull()
     {
-        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil);
+        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil, userInterestMapper);
 
         InterestItemRequest item = new InterestItemRequest();
         item.setType("  美食  ");
@@ -64,7 +68,7 @@ class UserServiceImplTest
     @Test
     void updateInterestsShouldPersistProvidedWeight()
     {
-        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil);
+        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil, userInterestMapper);
 
         InterestItemRequest item = new InterestItemRequest();
         item.setType("历史");
@@ -87,7 +91,7 @@ class UserServiceImplTest
     @Test
     void recordEngagementShouldIncreaseScenicTagWeights()
     {
-        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil);
+        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil, userInterestMapper);
 
         ScenicArea scenicArea = new ScenicArea();
         scenicArea.setId(201L);
@@ -113,7 +117,7 @@ class UserServiceImplTest
     @Test
     void recordEngagementShouldAddFoodAndCuisineSignals()
     {
-        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil);
+        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil, userInterestMapper);
 
         Food food = new Food();
         food.setId(901L);
@@ -139,7 +143,7 @@ class UserServiceImplTest
     @Test
     void recordEngagementShouldMergeChineseInterestAndBoostAllScenicTags()
     {
-        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil);
+        UserServiceImpl service = new UserServiceImpl(store, passwordEncoder, jwtUtil, userInterestMapper);
 
         ScenicArea scenicArea = new ScenicArea();
         scenicArea.setId(301L);

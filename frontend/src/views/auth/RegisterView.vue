@@ -38,7 +38,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="auth">
+  <div class="es-auth-page">
     <div class="panel glass">
       <div class="hero">
         <div class="h1">创建账号</div>
@@ -82,12 +82,8 @@ async function submit() {
 </template>
 
 <style scoped>
-.auth {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-  box-sizing: border-box;
+.es-auth-page {
+  width: 100%;
 }
 .panel {
   width: min(980px, 100%);
@@ -102,8 +98,11 @@ async function submit() {
   background:
     radial-gradient(420px 220px at 18% 15%, var(--accent-pink-2), transparent 60%),
     radial-gradient(360px 240px at 88% 26%, var(--accent-main-2), transparent 62%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(255, 255, 255, 0.10);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--glass-border-soft);
+  backdrop-filter: blur(16px) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(16px) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-md);
 }
 .h1 {
   font-size: 28px;

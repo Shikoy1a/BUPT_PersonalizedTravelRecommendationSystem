@@ -2,30 +2,38 @@
 
 :root {
   --page-pad: 16px;
-  --page-max: 760px;
+  --page-max: min(1200px, 100%);
 }
 
-html,
-body {
-  height: 100%;
+/* 仅由视口纵向滚动，避免 html/body 与内部容器同时出现滚动条 */
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body {
   margin: 0;
-  font-family: 'Söhne', ui-sans-serif, system-ui, sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
   color: var(--text-primary, #1a1a18);
-  background: var(--bg-base, #f5f4ef);
+  background: #0a1513;
 }
 
 #app {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 .glass {
-  background: var(--bg-surface, #ffffff);
-  border: 1px solid var(--border, #d4d2ca);
+  background: var(--glass-card-dense, rgba(255, 255, 255, 0.72));
+  border: 1px solid var(--glass-border-soft, rgba(255, 255, 255, 0.26));
   border-radius: 16px;
-  box-shadow: none;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
 }
 
 .muted {

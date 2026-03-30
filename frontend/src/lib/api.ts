@@ -67,6 +67,13 @@ export type InterestItemVO = {
   weight: number
 }
 
+/** 与后端 tags 表一致（经预加载） */
+export type TagVO = {
+  id: number
+  name: string
+  type?: string
+}
+
 export type Diary = {
   id: number
   userId: number
@@ -121,6 +128,12 @@ export async function apiUpdateInterest(payload: { interests: { type: string; we
 export async function apiGetInterest() {
   const res = (await http.get('/api/auth/interest')) as ApiResponse<InterestItemVO[]>
   return res.data
+}
+
+/** 标签字典（tags 表），用于筛选下拉等 */
+export async function apiTagsList() {
+  const res = (await http.get('/api/tags')) as ApiResponse<TagVO[]>
+  return res.data ?? []
 }
 
 export async function apiTrackEngagement(payload: {

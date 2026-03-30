@@ -4,10 +4,16 @@ import { ElMessage } from 'element-plus'
 import {
   apiRecommendationList,
   apiRecommendationPersonalized,
+  apiTagsList,
   type ScenicArea,
   type ScenicAreaRecommendVO,
 } from '../lib/api'
-import { interestLabelZh, normalizeInterestKey } from '../lib/interestTags'
+import {
+  COMMON_INTEREST_KEYS,
+  interestLabelZh,
+  isExcludedTagPickerKey,
+  normalizeInterestKey,
+} from '../lib/interestTags'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -27,26 +33,44 @@ const pList = ref<ScenicAreaRecommendVO[]>([])
 const pTotal = ref(0)
 
 const canPersonal = computed(() => auth.isAuthed)
-const presetTagOptions = ['山岳', '古镇', '美食', '历史', '自然', '文化', '亲子', '徒步', '摄影']
+/** 来自 GET /api/tags（tags 表）；请求失败时用 COMMON_INTEREST_KEYS 兜底 */
+const catalogTagKeys = ref<string[]>([])
 
 const tagOptions = computed(() => {
-  const set = new Set<string>(presetTagOptions.map((item) => normalizeInterestKey(item)))
+  const baseRaw =
+    catalogTagKeys.value.length > 0 ? catalogTagKeys.value : [...COMMON_INTEREST_KEYS]
+  const base = baseRaw.filter((k) => !isExcludedTagPickerKey(k))
+  const set = new Set<string>(base)
   ;(auth.user?.interests ?? []).forEach((tag) => {
     const v = normalizeInterestKey(tag || '')
-    if (v) set.add(v)
+    if (v && !isExcludedTagPickerKey(v)) set.add(v)
   })
   ;[...list.value, ...pList.value].forEach((item) => {
     ;(item.tags ?? []).forEach((tag) => {
       const v = normalizeInterestKey(tag || '')
-      if (v) set.add(v)
+      if (v && !isExcludedTagPickerKey(v)) set.add(v)
     })
     if ((!item.tags || item.tags.length === 0) && item.type) {
       const t = normalizeInterestKey(item.type)
-      if (t) set.add(t)
+      if (t && !isExcludedTagPickerKey(t)) set.add(t)
     }
   })
   return Array.from(set)
 })
+
+async function loadTagCatalog() {
+  const fallback = [...COMMON_INTEREST_KEYS].filter((k) => !isExcludedTagPickerKey(k))
+  try {
+    const rows = await apiTagsList()
+    const keys = rows
+      .map((t) => normalizeInterestKey(t.name || ''))
+      .filter((k): k is string => Boolean(k))
+      .filter((k) => !isExcludedTagPickerKey(k))
+    catalogTagKeys.value = keys.length > 0 ? keys : fallback
+  } catch {
+    catalogTagKeys.value = fallback
+  }
+}
 
 function displayTags(item: ScenicArea | ScenicAreaRecommendVO): string[] {
   const tags = item.tags ?? []
@@ -96,6 +120,7 @@ onMounted(() => {
   if (canPersonal.value) {
     tab.value = 'personalized'
   }
+  void loadTagCatalog()
   load()
 })
 
@@ -218,17 +243,21 @@ function formatScore(score?: number) {
 }
 .card {
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-card) !important;
+  border: 1px solid var(--glass-border-soft) !important;
   display: flex;
   flex-direction: column;
   height: 100%;
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  backdrop-filter: blur(var(--glass-card-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-card-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-sm);
 }
 .card:hover {
   transform: translateY(-2px);
   border-color: var(--accent-ring);
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--glass-card-dense) !important;
+  box-shadow: var(--shadow-md);
 }
 .card-title {
   font-weight: 820;

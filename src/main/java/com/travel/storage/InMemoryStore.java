@@ -382,6 +382,21 @@ public class InMemoryStore
         return tagsById;
     }
 
+    /**
+     * 返回 tags 表全部标签（按 name 字典序），供接口与下拉使用。
+     */
+    public synchronized List<Tag> listAllTagsSortedByName()
+    {
+        List<Tag> list = new ArrayList<>(tagsById.values());
+        list.sort((a, b) ->
+        {
+            String na = a.getName() == null ? "" : a.getName();
+            String nb = b.getName() == null ? "" : b.getName();
+            return na.compareToIgnoreCase(nb);
+        });
+        return list;
+    }
+
     public synchronized ScenicAreaTag insertScenicAreaTag(ScenicAreaTag relation)
     {
         Long id = relation.getId();

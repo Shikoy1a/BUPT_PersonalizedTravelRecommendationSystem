@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import {
   apiDiaryDelete,
   apiDiaryDetail,
   apiDiaryList,
   apiDiarySearch,
+  apiGetInterest,
   apiRecommendationList,
   apiScenicSearchByKeyword,
   type Diary,
   type ScenicArea,
 } from '../../lib/api'
+import { interestLabelZh, isExcludedTagPickerKey, normalizeInterestKey } from '../../lib/interestTags'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
@@ -22,8 +24,30 @@ const diaryDestMap = ref<Record<number, number[]>>({})
 const diaryCreatorNicknameMap = ref<Record<number, string>>({})
 const scenicTagMap = ref<Record<number, string[]>>({})
 
-const scenicTags = ['推荐', '历史', '古镇', '山水', '海滨', '人文']
-const activeTag = ref('推荐')
+/** 用户兴趣（规范键 + 权重），用于顶部标签顺序与内容 */
+const interestRows = ref<{ type: string; weight: number }[]>([])
+
+const RECOMMEND_CHIP_ID = '__recommend__'
+const activeChipId = ref(RECOMMEND_CHIP_ID)
+
+const diaryFilterChips = computed(() => {
+  const chips: { id: string; label: string }[] = [{ id: RECOMMEND_CHIP_ID, label: '推荐' }]
+  const seen = new Set<string>()
+  const sorted = [...interestRows.value].sort((a, b) => b.weight - a.weight)
+  for (const row of sorted) {
+    if (!row.type || seen.has(row.type)) continue
+    seen.add(row.type)
+    chips.push({ id: row.type, label: interestLabelZh(row.type) })
+  }
+  return chips
+})
+
+watch(diaryFilterChips, (chips) => {
+  const ids = new Set(chips.map((c) => c.id))
+  if (!ids.has(activeChipId.value)) {
+    activeChipId.value = RECOMMEND_CHIP_ID
+  }
+})
 
 const searchQuery = reactive({ keyword: '', destination: undefined as number | undefined, page: 1, size: 50 })
 const searchList = ref<Diary[]>([])
@@ -82,13 +106,14 @@ async function runSearch() {
 const baseItems = computed(() => (fromSearch.value ? searchList.value : list.value))
 
 const displayItems = computed(() => {
-  if (activeTag.value === '推荐') return baseItems.value
+  if (activeChipId.value === RECOMMEND_CHIP_ID) return baseItems.value
+  const key = activeChipId.value
   return baseItems.value.filter((row) => {
     const destIds = diaryDestMap.value[row.id] || []
     if (!destIds.length) return false
     return destIds.some((destId) => {
       const tags = scenicTagMap.value[destId] || []
-      return tags.includes(activeTag.value)
+      return tags.some((t) => normalizeInterestKey(t) === key)
     })
   })
 })
@@ -173,13 +198,33 @@ async function hydrateDiaryDestinations(diaries: Diary[]) {
   }
 }
 
-async function selectTag(tag: string) {
-  activeTag.value = tag
-  if (tag === '推荐') {
+async function selectChip(chipId: string) {
+  activeChipId.value = chipId
+  if (chipId === RECOMMEND_CHIP_ID) {
     if (!fromSearch.value && !list.value.length) await load()
     return
   }
   if (!baseItems.value.length) await load()
+}
+
+async function loadInterestChips() {
+  if (!auth.isAuthed) {
+    interestRows.value = []
+    return
+  }
+  try {
+    const items = await apiGetInterest()
+    interestRows.value = (items ?? [])
+      .map((i) => ({
+        type: normalizeInterestKey(i.type || ''),
+        weight: Number(i.weight ?? 1),
+      }))
+      .filter((x) => x.type && !isExcludedTagPickerKey(x.type) && Number.isFinite(x.weight))
+  } catch {
+    interestRows.value = (auth.user?.interests ?? [])
+      .map((t) => ({ type: normalizeInterestKey(t || ''), weight: 1 }))
+      .filter((x) => x.type && !isExcludedTagPickerKey(x.type))
+  }
 }
 
 function canManage(row: Diary) {
@@ -194,7 +239,28 @@ async function del(row: Diary, e: Event) {
   else await load()
 }
 
-onMounted(load)
+onMounted(async () => {
+  await loadInterestChips()
+  await load()
+})
+
+watch(
+  () => auth.isAuthed,
+  async (authed) => {
+    await loadInterestChips()
+    if (!authed) {
+      activeChipId.value = RECOMMEND_CHIP_ID
+    }
+  },
+)
+
+watch(
+  () => auth.user?.interests,
+  () => {
+    void loadInterestChips()
+  },
+  { deep: true },
+)
 </script>
 
 <template>
@@ -203,14 +269,14 @@ onMounted(load)
       <div class="hdr">
         <div class="tag-row">
           <button
-            v-for="tag in scenicTags"
-            :key="tag"
+            v-for="chip in diaryFilterChips"
+            :key="chip.id"
             class="tag-btn"
-            :class="{ active: activeTag === tag }"
+            :class="{ active: activeChipId === chip.id }"
             type="button"
-            @click="selectTag(tag)"
+            @click="selectChip(chip.id)"
           >
-            {{ tag }}
+            {{ chip.label }}
           </button>
         </div>
         <div class="hdr-actions">
@@ -289,9 +355,13 @@ onMounted(load)
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--bg-base);
-  padding: 12px 0;
-  margin-bottom: 14px;
+  margin: -4px -8px 14px;
+  padding: 12px 8px;
+  background: var(--glass-sticky);
+  border: 1px solid var(--glass-border-faint);
+  border-radius: 14px;
+  backdrop-filter: blur(var(--glass-sticky-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-sticky-blur)) saturate(var(--glass-saturate));
 }
 
 .diary-feed-shell {
@@ -323,9 +393,11 @@ onMounted(load)
 }
 
 .tag-btn.active {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--glass-subtle);
   color: var(--text-primary, #2d2618);
   font-weight: 700;
+  backdrop-filter: blur(var(--glass-subtle-blur));
+  -webkit-backdrop-filter: blur(var(--glass-subtle-blur));
 }
 
 .hdr-actions {
@@ -358,9 +430,11 @@ onMounted(load)
 .dest-pill :deep(.el-input__wrapper),
 .dest-pill :deep(.el-select__wrapper) {
   border-radius: 999px !important;
-  border: none !important;
+  border: 1px solid var(--glass-border-faint) !important;
   box-shadow: none !important;
-  background: rgba(255, 255, 255, 0.2) !important;
+  background: var(--glass-muted) !important;
+  backdrop-filter: blur(var(--glass-subtle-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-subtle-blur)) saturate(var(--glass-saturate)) !important;
 }
 
 .dest-pill :deep(.el-input__inner),
@@ -381,8 +455,11 @@ onMounted(load)
   margin-bottom: 16px;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--glass-border-soft);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(14px) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(14px) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-sm);
 }
 
 .search-dest {
@@ -451,9 +528,10 @@ onMounted(load)
   cursor: pointer;
   border-radius: 16px;
   overflow: hidden;
-  /* 使用全局主题变量，避免浅色/深色切换导致标题看不见 */
-  background: rgba(255, 255, 255, 0.58);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--glass-card);
+  border: 1px solid var(--glass-border-soft);
+  backdrop-filter: blur(var(--glass-card-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-card-blur)) saturate(var(--glass-saturate));
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 

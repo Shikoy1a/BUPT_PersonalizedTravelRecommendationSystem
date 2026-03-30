@@ -69,3 +69,20 @@ export const COMMON_INTEREST_KEYS = [
   'hiking',
   'walk',
 ] as const
+
+/** 首页推荐、个人中心快速添加等下拉里不展示的标签（展示名或原文匹配） */
+const EXCLUDED_TAG_PICKER_LABELS = new Set(['普通景区'])
+
+/**
+ * 是否应在标签下拉里隐藏（例如景区类型「普通景区」不宜作为兴趣/筛选标签）。
+ */
+export function isExcludedTagPickerKey(keyOrRaw: string): boolean {
+  const s = (keyOrRaw || '').trim()
+  if (!s) return false
+  if (EXCLUDED_TAG_PICKER_LABELS.has(s)) return true
+  const canon = normalizeInterestKey(s)
+  if (EXCLUDED_TAG_PICKER_LABELS.has(canon)) return true
+  if (EXCLUDED_TAG_PICKER_LABELS.has(interestLabelZh(s))) return true
+  if (EXCLUDED_TAG_PICKER_LABELS.has(interestLabelZh(canon))) return true
+  return false
+}

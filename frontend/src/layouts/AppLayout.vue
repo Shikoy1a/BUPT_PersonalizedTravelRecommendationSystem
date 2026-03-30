@@ -3,29 +3,29 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useMediaQuery } from '@vueuse/core'
-import {
-  Compass,
-  HomeFilled,
-  Location,
-  ForkSpoon,
-  EditPen,
-  Setting,
-  User,
-  SwitchButton,
-  Star,
-  Menu as MenuIcon,
-} from '@element-plus/icons-vue'
+import { Menu as MenuIcon } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const active = computed(() => route.path)
-const isMobile = useMediaQuery('(max-width: 980px)')
+const isMobile = useMediaQuery('(max-width: 720px)')
 const drawerOpen = ref(false)
-const sidebarExpanded = ref(false)
-const desktopCollapsed = computed(() => !isMobile.value && !sidebarExpanded.value)
+
+const isHome = computed(() => route.path === '/home')
+
+function mainNavActive(path: string): boolean {
+  const p = route.path
+  if (path === '/home') return p === '/home'
+  if (path === '/about') return p === '/about'
+  if (path === '/diary') return p.startsWith('/diary')
+  if (path === '/recommend') return p === '/recommend' || /^\/scenic\/[^/]+$/.test(p)
+  if (path === '/contacts') return p === '/profile' || p === '/login'
+  return false
+}
+
+const contactsTo = computed(() => (auth.isAuthed ? '/profile' : '/login'))
 
 async function logout() {
   await ElMessageBox.confirm('确认退出登录？', '提示', { type: 'warning' })
@@ -33,299 +33,116 @@ async function logout() {
   router.push('/home')
 }
 
-function onSidebarEnter() {
-  if (!isMobile.value) sidebarExpanded.value = true
-}
-
-function onSidebarLeave() {
-  if (!isMobile.value) sidebarExpanded.value = false
+function closeDrawer() {
+  drawerOpen.value = false
 }
 </script>
 
 <template>
-  <div class="shell" :class="{ collapsed: desktopCollapsed }">
-    <aside v-if="!isMobile" class="sidebar glass" @mouseenter="onSidebarEnter" @mouseleave="onSidebarLeave">
-      <div class="brand">
-        <div class="logo" role="button" tabindex="0" @click="$router.push('/home')" />
-        <div class="name" :class="{ hiddenText: desktopCollapsed }">
-          <div class="title">Travel System</div>
-          <div class="sub muted">旅游 · 路线 · 日记 · 美食</div>
-        </div>
-      </div>
-
-      <el-menu :default-active="active" router class="menu" background-color="transparent">
-        <el-menu-item index="/home">
-          <el-icon><HomeFilled /></el-icon>
-          <span :class="{ hiddenText: desktopCollapsed }">首页</span>
-        </el-menu-item>
-        <el-menu-item index="/recommend">
-          <el-icon><Compass /></el-icon>
-          <span :class="{ hiddenText: desktopCollapsed }">推荐</span>
-        </el-menu-item>
-        <el-menu-item index="/route">
-          <el-icon><Location /></el-icon>
-          <span :class="{ hiddenText: desktopCollapsed }">路线</span>
-        </el-menu-item>
-        <el-menu-item index="/facility">
-          <el-icon><Setting /></el-icon>
-          <span :class="{ hiddenText: desktopCollapsed }">设施</span>
-        </el-menu-item>
-        <el-menu-item index="/food">
-          <el-icon><ForkSpoon /></el-icon>
-          <span :class="{ hiddenText: desktopCollapsed }">美食</span>
-        </el-menu-item>
-        <el-menu-item index="/diary">
-          <el-icon><EditPen /></el-icon>
-          <span :class="{ hiddenText: desktopCollapsed }">日记</span>
-        </el-menu-item>
-        <el-menu-item v-if="auth.user?.role?.toUpperCase() === 'ADMIN'" index="/admin">
-          <el-icon><Star /></el-icon>
-          <span :class="{ hiddenText: desktopCollapsed }">管理</span>
-        </el-menu-item>
-      </el-menu>
-
-      <div class="sidebar-footer">
-        <template v-if="auth.isAuthed">
-          <el-button text class="footer-btn" @click="$router.push('/profile')">
-            <el-icon><User /></el-icon>
-            <span :class="{ hiddenText: desktopCollapsed }" style="margin-left: 6px">{{ auth.user?.username }}</span>
-          </el-button>
-          <el-button text class="footer-btn" @click="logout" title="退出" aria-label="退出">
-            <el-icon><SwitchButton /></el-icon>
-          </el-button>
-        </template>
-        <template v-else>
-          <el-button type="primary" class="footer-btn" @click="$router.push('/login')">
-            登录
-          </el-button>
-          <el-button class="footer-btn" @click="$router.push('/register')">注册</el-button>
-        </template>
-      </div>
-    </aside>
-
-    <el-drawer v-else v-model="drawerOpen" size="270px" direction="ltr">
-      <aside class="sidebar glass">
-        <div class="brand">
-          <div class="logo" role="button" tabindex="0" @click="$router.push('/home'); drawerOpen=false" />
-          <div class="name">
-            <div class="title">Travel System</div>
-            <div class="sub muted">导航与内容</div>
+  <div class="es-app">
+    <header class="es-header">
+      <template v-if="!isMobile">
+        <nav class="es-nav" aria-label="Primary">
+          <router-link to="/home" class="nav-items" :class="{ active: mainNavActive('/home') }">Home</router-link>
+          <router-link to="/about" class="nav-items" :class="{ active: mainNavActive('/about') }">About</router-link>
+          <router-link to="/diary" class="nav-items" :class="{ active: mainNavActive('/diary') }">Reviews</router-link>
+          <router-link to="/recommend" class="nav-items" :class="{ active: mainNavActive('/recommend') }">Gallery</router-link>
+          <router-link :to="contactsTo" class="nav-items" :class="{ active: mainNavActive('/contacts') }">Contacts</router-link>
+          <div class="es-nav__user">
+            <template v-if="auth.isAuthed">
+              <span style="font-size: 13px; color: rgb(53,53,53); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ auth.user?.username }}</span>
+              <el-button size="small" @click="logout">退出</el-button>
+            </template>
+            <template v-else>
+              <el-button type="primary" size="small" @click="router.push('/login')">登录</el-button>
+              <el-button size="small" @click="router.push('/register')">注册</el-button>
+            </template>
           </div>
+        </nav>
+      </template>
+      <template v-else>
+        <nav class="es-nav" style="width: 100%; justify-content: space-between">
+          <el-button text circle class="menuBtn" aria-label="Menu" @click="drawerOpen = true">
+            <el-icon><MenuIcon /></el-icon>
+          </el-button>
+          <div class="es-nav__user">
+            <el-button type="primary" size="small" @click="router.push('/login')">登录</el-button>
+          </div>
+        </nav>
+        <el-drawer v-model="drawerOpen" size="min(88vw, 320px)" direction="ltr" title="Menu">
+          <div class="es-drawer-links">
+            <router-link to="/home" class="drawer-link" @click="closeDrawer">Home</router-link>
+            <router-link to="/about" class="drawer-link" @click="closeDrawer">About</router-link>
+            <router-link to="/diary" class="drawer-link" @click="closeDrawer">Reviews</router-link>
+            <router-link to="/recommend" class="drawer-link" @click="closeDrawer">Gallery</router-link>
+            <router-link :to="contactsTo" class="drawer-link" @click="closeDrawer">Contacts</router-link>
+            <div class="drawer-sep" />
+            <router-link to="/route" class="drawer-link" @click="closeDrawer">路线</router-link>
+            <router-link to="/facility" class="drawer-link" @click="closeDrawer">设施</router-link>
+            <router-link to="/food" class="drawer-link" @click="closeDrawer">美食</router-link>
+            <router-link v-if="auth.user?.role?.toUpperCase() === 'ADMIN'" to="/admin" class="drawer-link" @click="closeDrawer">管理</router-link>
+            <template v-if="auth.isAuthed">
+              <el-button style="margin-top: 12px" @click="logout(); closeDrawer()">退出登录</el-button>
+            </template>
+            <template v-else>
+              <el-button type="primary" style="margin-top: 12px" @click="router.push('/register'); closeDrawer()">注册</el-button>
+            </template>
+          </div>
+        </el-drawer>
+      </template>
+    </header>
+
+    <nav v-if="!isMobile" class="es-subnav" aria-label="App features">
+      <router-link to="/recommend" class="es-subnav__link">推荐</router-link>
+      <span style="color: rgba(255,255,255,0.25)">·</span>
+      <router-link to="/route" class="es-subnav__link">路线</router-link>
+      <span style="color: rgba(255,255,255,0.25)">·</span>
+      <router-link to="/facility" class="es-subnav__link">设施</router-link>
+      <span style="color: rgba(255,255,255,0.25)">·</span>
+      <router-link to="/food" class="es-subnav__link">美食</router-link>
+      <template v-if="auth.user?.role?.toUpperCase() === 'ADMIN'">
+        <span style="color: rgba(255,255,255,0.25)">·</span>
+        <router-link to="/admin" class="es-subnav__link">管理</router-link>
+      </template>
+    </nav>
+
+    <main :class="['es-main', { 'es-main--flush': isHome }]">
+      <router-view v-slot="{ Component }">
+        <template v-if="isHome">
+          <component :is="Component" />
+        </template>
+        <div v-else class="es-main-inner es-panel-page">
+          <component :is="Component" />
         </div>
-        <el-menu :default-active="active" router class="menu" background-color="transparent" @select="drawerOpen = false">
-          <el-menu-item index="/home">
-            <el-icon><HomeFilled /></el-icon>
-            <span>首页</span>
-          </el-menu-item>
-          <el-menu-item index="/recommend">
-            <el-icon><Compass /></el-icon>
-            <span>推荐</span>
-          </el-menu-item>
-          <el-menu-item index="/route">
-            <el-icon><Location /></el-icon>
-            <span>路线</span>
-          </el-menu-item>
-          <el-menu-item index="/facility">
-            <el-icon><Setting /></el-icon>
-            <span>设施</span>
-          </el-menu-item>
-          <el-menu-item index="/food">
-            <el-icon><ForkSpoon /></el-icon>
-            <span>美食</span>
-          </el-menu-item>
-          <el-menu-item index="/diary">
-            <el-icon><EditPen /></el-icon>
-            <span>日记</span>
-          </el-menu-item>
-          <el-menu-item v-if="auth.user?.role?.toUpperCase() === 'ADMIN'" index="/admin">
-            <el-icon><Star /></el-icon>
-            <span>管理</span>
-          </el-menu-item>
-        </el-menu>
-
-        <div class="sidebar-footer">
-          <template v-if="auth.isAuthed">
-            <el-button text class="footer-btn" @click="$router.push('/profile')">
-              <el-icon><User /></el-icon>
-              <span style="margin-left: 6px">{{ auth.user?.username }}</span>
-            </el-button>
-            <el-button text class="footer-btn" @click="logout" title="退出" aria-label="退出">
-              <el-icon><SwitchButton /></el-icon>
-            </el-button>
-          </template>
-          <template v-else>
-            <el-button type="primary" class="footer-btn" @click="$router.push('/login')">登录</el-button>
-            <el-button class="footer-btn" @click="$router.push('/register')">注册</el-button>
-          </template>
-        </div>
-      </aside>
-    </el-drawer>
-
-    <main class="main">
-      <div v-if="isMobile" class="mobile-topbar">
-        <el-button text circle class="menuBtn" @click="drawerOpen = true" aria-label="Open menu">
-          <el-icon><MenuIcon /></el-icon>
-        </el-button>
-      </div>
-
-      <div class="content">
-        <router-view />
-      </div>
+      </router-view>
     </main>
   </div>
 </template>
 
 <style scoped>
-.shell {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 12px;
-  padding: 12px;
-  min-height: 100vh;
-  box-sizing: border-box;
-  background: var(--bg-base);
-  transition: grid-template-columns 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.shell.collapsed {
-  grid-template-columns: 92px 1fr;
-}
-
-.sidebar {
-  padding: 16px 12px;
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - 28px);
-  background: var(--bg-sidebar) !important;
-  border: 1px solid var(--border-subtle) !important;
-  overflow: hidden;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.brand {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 10px 14px;
-  min-height: 48px;
-}
-
-.logo {
+.menuBtn {
   width: 42px;
   height: 42px;
-  border-radius: 12px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  box-shadow: none;
-  cursor: pointer;
+  color: rgb(53, 53, 53);
 }
-
-.title {
-  font-family: 'Tiempos Headline', Georgia, serif;
-  font-weight: 500;
-  letter-spacing: 0.2px;
-  color: var(--text-primary);
-}
-
-.sub {
-  font-size: 12px;
-}
-
-.menu {
-  border-right: none;
-  flex: 1;
-  background: transparent;
-}
-
-.hiddenText {
-  opacity: 0;
-  width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transform: translateX(-4px);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.shell:not(.collapsed) .hiddenText {
-  opacity: 1;
-  width: auto;
-  transform: translateX(0);
-}
-
-.shell.collapsed .brand {
-  justify-content: center;
-}
-
-.shell.collapsed .menu :deep(.el-menu-item) {
-  justify-content: center;
-  padding-inline: 0 !important;
-}
-
-.main {
+.es-drawer-links {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-width: 0;
+  gap: 6px;
 }
-
-.topbar {
-  padding: 10px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--bg-surface) !important;
-  border: 1px solid var(--border-subtle) !important;
-}
-
-.sidebar-footer {
-  padding: 10px 6px 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.footer-btn {
-  flex: 1;
-  justify-content: center;
-}
-
-.mobile-topbar {
-  display: flex;
-  justify-content: flex-start;
-  padding: 4px 2px 0;
-}
-
-.crumb {
+.drawer-link {
+  padding: 12px 10px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--el-text-color-primary);
   font-weight: 500;
-  letter-spacing: 0.15px;
-  color: var(--text-secondary);
 }
-
-.content {
-  flex: 1;
-  min-height: 0;
+.drawer-link:hover {
+  background: var(--el-fill-color-light);
 }
-
-.left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.menuBtn {
-  width: 40px;
-  height: 40px;
-}
-
-@media (max-width: 980px) {
-  .shell {
-    grid-template-columns: 1fr;
-    padding: 8px;
-  }
-  .sidebar {
-    min-height: auto;
-  }
+.drawer-sep {
+  height: 1px;
+  background: var(--el-border-color-lighter);
+  margin: 8px 0;
 }
 </style>
-

@@ -1,27 +1,59 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const base = import.meta.env.BASE_URL
+
+/** public/explorescape 下的分层图，构建期与运行时均用 BASE_URL 拼接，避免打包器把绝对路径当模块 */
+const layers = {
+  b3: `${base}explorescape/bac-3.png`,
+  b2: `${base}explorescape/bac-2.png`,
+  b22: `${base}explorescape/bac-2-2.png`,
+  b1: `${base}explorescape/bac-1.png`,
+}
+
+function exploreMore() {
+  router.push('/recommend')
+}
+</script>
 
 <template>
-  <div class="page home-page">
-    <el-card class="glass" shadow="never">
-      <template #header>
-        <div style="font-weight: 900">首页</div>
-      </template>
+  <div class="es-home">
+    <div class="es-content">
+      <!-- 与 ExploreScape index.html 顺序一致：bac 3 → bac 2 → bac 2.2 → bac 1（bac 4 仅在壳层背景） -->
+      <img :src="layers.b3" alt="" class="es-parallax-img back-3" />
+      <img :src="layers.b2" alt="" class="es-parallax-img back-2mid" />
+      <img :src="layers.b22" alt="" class="es-parallax-img back-2" />
+      <img :src="layers.b1" alt="" class="es-parallax-img back-1" />
 
-      <div class="placeholder muted">
-        首页组件布局待定（已预留页面与配色风格）。你之后确定要放哪些模块，我再帮你拼成完整首页。
+      <div class="es-title">
+        <h3>The Land of Serene Beauty</h3>
+        <h1>travel</h1>
       </div>
-    </el-card>
+
+      <div class="es-info-wrap">
+        <p>
+          Kerala is a tropical paradise in southern India, known for its breathtaking landscapes, rich culture, and serene backwaters. Whether you're seeking adventure, relaxation, or a taste of India's unique traditions, Kerala has something for everyone. From the lush hill stations to pristine beaches, and Ayurvedic retreats to vibrant festivals, this enchanting state offers a perfect blend of natural beauty and cultural experiences.
+        </p>
+      </div>
+
+      <div class="es-cta">
+        <button type="button" @click="exploreMore">
+          Explore More
+          <i class="fa-solid fa-arrow-right" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div class="es-slider" aria-hidden="true">
+        <i class="fa-solid fa-chevron-left" />
+        <i class="fa-solid fa-chevron-right" />
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.home-page {
-  max-width: 980px;
-}
-.placeholder {
-  padding: 18px 4px;
-  line-height: 1.8;
-  font-size: 14px;
+.es-content {
+  isolation: isolate;
 }
 </style>
-

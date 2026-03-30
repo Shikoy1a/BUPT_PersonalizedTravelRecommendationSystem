@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +69,43 @@ class RecommendationServiceImplTest
 
         assertEquals(1L, result.getTotal());
         assertEquals(210L, result.getList().get(0).getId());
+    }
+
+    @Test
+    void personalizedShouldMatchTagKeywordByCanonicalNameAcrossZhAndEn()
+    {
+        RecommendationServiceImpl service = new RecommendationServiceImpl(store);
+
+        ScenicArea a = scenic(201L, "文化馆", 600, 4.2);
+        when(store.findAllScenicAreas()).thenReturn(List.of(a));
+        when(store.getUserInterests(101L)).thenReturn(Map.of("culture", 1.0));
+        when(store.getScenicAreaTagWeights(201L)).thenReturn(mapOf("culture", 1.0));
+        when(store.getScenicAreaTagNames(201L)).thenReturn(List.of("culture"));
+
+        PageData<ScenicAreaRecommendVO> byZh = service.personalized(101L, 1, 10, null, "文化");
+        assertEquals(1L, byZh.getTotal());
+
+        PageData<ScenicAreaRecommendVO> byEn = service.personalized(101L, 1, 10, null, "culture");
+        assertEquals(1L, byEn.getTotal());
+    }
+
+    @Test
+    void personalizedShouldMatchTagKeywordAgainstScenicTypeWhenNoAreaTags()
+    {
+        RecommendationServiceImpl service = new RecommendationServiceImpl(store);
+
+        ScenicArea campusOnly = scenic(301L, "某大学校园", 500, 4.0);
+        campusOnly.setType("校园");
+        when(store.findAllScenicAreas()).thenReturn(List.of(campusOnly));
+        when(store.getUserInterests(101L)).thenReturn(Map.of("campus", 1.0));
+        when(store.getScenicAreaTagWeights(301L)).thenReturn(Map.of());
+        when(store.findScenicAreaById(301L)).thenReturn(campusOnly);
+        when(store.getScenicAreaTagNames(301L)).thenReturn(List.of());
+
+        PageData<ScenicAreaRecommendVO> result = service.personalized(101L, 1, 10, null, "campus");
+        assertEquals(1L, result.getTotal());
+        assertEquals(301L, result.getList().get(0).getId());
+        verify(store).findScenicAreaById(301L);
     }
 
     @Test
